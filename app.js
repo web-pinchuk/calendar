@@ -54,6 +54,7 @@
       pOnline: 'Online now', pOffline: 'Offline', pNever: 'Has not opened it yet', pSeen: when => 'Last visit: ' + when,
       ownOn: 'Own calendar: allowed', ownOff: 'Allow their own calendar', ownTag: 'own calendar', ownGranted: 'Own calendar allowed', ownRevoked: 'Own calendar switched off',
       accNoOwn: 'No cloud calendar for this account: kept on this device only', menuMine: 'My calendar',
+      pShowLog: 'Show the visits', pWeek: 'Last 7 days', pVisits: n => n + (n === 1 ? ' visit' : ' visits'), pNoLog: 'No visits in the last 7 days.', pNow: 'now', hShort: 'h',
       menuLang: 'Language', menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
       accInvite: 'Send the invitation', invSubject: 'Access to my work calendar',
       invBody: (link, mail, name, mine) => `Hello!\n\nI have given you view access to my work calendar.\n\nOpen it here: ${link}\nSign in with this Google account: ${mail}${mine ? '\n\nYou can also keep your own calendar here: ' + mine : ''}\n\n${name}`,
@@ -113,6 +114,7 @@
       pOnline: 'Зараз онлайн', pOffline: 'Офлайн', pNever: 'Ще не відкривали', pSeen: when => 'Останній візит: ' + when,
       ownOn: 'Власний календар: дозволено', ownOff: 'Дозволити власний календар', ownTag: 'власний календар', ownGranted: 'Власний календар дозволено', ownRevoked: 'Власний календар вимкнено',
       accNoOwn: 'Для цього акаунта немає хмарного календаря: лише на цьому пристрої', menuMine: 'Мій календар',
+      pShowLog: 'Показати візити', pWeek: 'Останні 7 днів', pVisits: n => n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'візит' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'візити' : 'візитів'), pNoLog: 'За останні 7 днів візитів не було.', pNow: 'зараз', hShort: 'год',
       menuLang: 'Мова', menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
       accInvite: 'Надіслати запрошення', invSubject: 'Доступ до мого робочого календаря',
       invBody: (link, mail, name, mine) => `Вітаю!\n\nЯ надав вам доступ на перегляд мого робочого календаря.\n\nВідкрити: ${link}\nУвійдіть через цей Google-акаунт: ${mail}${mine ? '\n\nВи також можете вести власний календар тут: ' + mine : ''}\n\n${name}`,
@@ -1821,9 +1823,50 @@
   // shared calendar is on screen; a fresh mark means the person is looking at it right now.
   const ONLINE_MS = 150000;
   let visits = new Map(), unsubVisits = null, sharedOpen = false; // email -> { id, seen }
-  function beat() {
-    if (!sharedOpen || !user || !GUEST || user.uid === GUEST || document.hidden) return;
-    fb.setDoc(fb.doc(fb.$db, 'calendars', GUEST, 'visits', user.uid), { email: (user.email || '').toLowerCase(), seen: fb.serverTimestamp() }).catch(() => { /* access was taken away */ });
+  // The mark also keeps the viewer's sessions of the last week: [{ a: start, b: end }] in ms.
+  // A mark that comes within ONLINE_MS of the previous one continues the same session.
+  const WEEK_MS = 7 * 864e5;
+  let beating = false, logOk = true, openPerson = null;
+  async function beat() {
+    if (!sharedOpen || !user || !GUEST || user.uid === GUEST || document.hidden || beating) return;
+    beating = true;
+    const ref = fb.doc(fb.$db, 'calendars', GUEST, 'visits', user.uid);
+    const base = { email: (user.email || '').toLowerCase(), seen: fb.serverTimestamp() };
+    try {
+      if (!logOk) { await fb.setDoc(ref, base); return; }
+      const snap = await fb.getDoc(ref), now = Date.now();
+      const old = snap.exists() && Array.isArray(snap.data().log) ? snap.data().log : [];
+      const log = old.filter(s => s && s.a > 0 && s.b >= s.a && now - s.b < WEEK_MS).map(s => ({ a: s.a, b: s.b })).slice(-200);
+      const last = log[log.length - 1];
+      if (last && now - last.b < ONLINE_MS) last.b = now; else log.push({ a: now, b: now });
+      await fb.setDoc(ref, { ...base, log });
+    } catch (err) {
+      // Rules without the session log: keep at least the "online" mark.
+      if (logOk && err.code === 'permission-denied') { logOk = false; fb.setDoc(ref, base).catch(() => { /* access was taken away */ }); }
+    } finally { beating = false; }
+  }
+  const clockOf = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  function spanText(ms) {
+    const m = Math.max(1, Math.round(ms / 60000));
+    return m < 60 ? `${m} ${L().min}` : `${Math.floor(m / 60)} ${L().hShort}${m % 60 ? ` ${m % 60} ${L().min}` : ''}`;
+  }
+  // Sessions of one person for the last 7 days, newest day first.
+  function personLog(v, online) {
+    const box = el('div', 'person-log');
+    const now = Date.now(), log = ((v && v.log) || []).filter(s => now - s.b < WEEK_MS).sort((x, y) => y.a - x.a);
+    if (!log.length) { box.append(el('p', '', L().pNoLog)); return box; }
+    const total = log.reduce((sum, s) => sum + (s.b - s.a), 0);
+    box.append(el('p', 'person-sum', `${L().pWeek}: ${L().pVisits(log.length)} · ${spanText(total)}`));
+    let day = '';
+    log.forEach((s, i) => {
+      const k = key(new Date(s.a));
+      if (k !== day) { day = k; box.append(el('h5', '', k === key(new Date()) ? L().today : shortDate(k))); }
+      const live = online && i === 0;
+      const line = el('div', `person-visit${live ? ' live' : ''}`);
+      line.append(el('span', '', `${clockOf(s.a)} – ${live ? L().pNow : clockOf(s.b)}`), el('em', '', spanText((live ? now : s.b) - s.a)));
+      box.append(line);
+    });
+    return box;
   }
   function seenText(ms) {
     const d = new Date(ms), time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -1833,13 +1876,20 @@
     const box = $('menuPeople');
     box.hidden = !user || !!GUEST || !viewers.length;
     if (box.hidden) return;
-    box.replaceChildren(...viewers.map(mail => {
+    box.replaceChildren(...viewers.flatMap(mail => {
       const v = visits.get(mail), online = !!v && Date.now() - v.seen < ONLINE_MS;
       const row = el('div', `person${online ? ' online' : ''}`);
       const text = el('div', 'person-text');
       const seen = online ? L().pOnline : v && v.seen ? seenText(v.seen) : L().pNever;
       text.append(el('b', '', mail), el('small', '', members.includes(mail) ? `${seen} · ${L().ownTag}` : seen));
-      text.title = mail;
+      // A press on the person opens their visits of the last week.
+      const open = openPerson === mail;
+      text.title = `${mail}\n${L().pShowLog}`;
+      text.setAttribute('role', 'button');
+      text.setAttribute('aria-expanded', open);
+      text.tabIndex = 0;
+      text.onclick = () => { openPerson = open ? null : mail; renderPeople(); };
+      text.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); text.onclick(); } };
       const rm = el('button', 'person-rm');
       rm.type = 'button';
       rm.title = L().accRemove;
@@ -1854,7 +1904,8 @@
       const dot = el('i', 'person-dot');
       dot.title = online ? L().pOnline : L().pOffline;
       row.append(dot, text, ...(isAdmin() ? [ownButton(mail, 'person-rm')] : []), rm);
-      return row;
+      if (open) row.classList.add('open');
+      return open ? [row, personLog(v, online)] : [row];
     }));
   }
 
@@ -2125,7 +2176,7 @@
         docRef = fb.doc(fb.$db, 'calendars', u.uid);
         unsubVisits = fb.onSnapshot(fb.collection(fb.$db, 'calendars', u.uid, 'visits'), snap => {
           visits = new Map();
-          snap.forEach(d => { const v = d.data(); if (v.email) visits.set(v.email, { id: d.id, seen: v.seen && v.seen.toMillis ? v.seen.toMillis() : 0 }); });
+          snap.forEach(d => { const v = d.data(); if (v.email) visits.set(v.email, { id: d.id, seen: v.seen && v.seen.toMillis ? v.seen.toMillis() : 0, log: Array.isArray(v.log) ? v.log : [] }); });
           renderPeople();
         }, () => { /* visit marks are optional: the calendar works without them */ });
         setSyncState('busy');
