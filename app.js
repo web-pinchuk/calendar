@@ -13,7 +13,7 @@
       projects: 'Projects', hours24: '24 hours', start: 'START', stop: 'STOP',
       startTimer: 'Start timer', stopTimer: 'Stop timer',
       lunch: 'Lunch', everyDay: 'Every day', color: 'Project color',
-      titlePh: 'Project name', addToDial: 'Add to circle', addTime: 'Add time', removeTime: 'Remove this time',
+      titlePh: 'Project name', addToDial: 'Task done', planRecorded: 'Recorded as done:', addTime: 'Add time', removeTime: 'Remove this time',
       add: 'Add Event', save: 'Save', del: 'Delete', cancel: 'Cancel', dup: 'Duplicate', total: 'Total',
       more: n => `${n} more`,
       badTime: 'Check the time', badTimeBody: 'The end must be later than the start.',
@@ -51,7 +51,7 @@
       projects: 'Проєкти', hours24: '24 години', start: 'СТАРТ', stop: 'СТОП',
       startTimer: 'Запустити таймер', stopTimer: 'Зупинити таймер',
       lunch: 'Обід', everyDay: 'Щодня', color: 'Колір проєкту',
-      titlePh: 'Назва проєкту', addToDial: 'Додати в круг', addTime: 'Додати час', removeTime: 'Прибрати цей час',
+      titlePh: 'Назва проєкту', addToDial: 'Задачу виконано', planRecorded: 'Записано як виконане:', addTime: 'Додати час', removeTime: 'Прибрати цей час',
       add: 'Додати подію', save: 'Зберегти', del: 'Видалити', cancel: 'Скасувати', dup: 'Дублювати', total: 'Всього',
       more: n => `ще ${n}`,
       badTime: 'Перевірте час', badTimeBody: 'Кінець має бути пізніше за початок.',
@@ -303,28 +303,40 @@
   }
 
   const GRID_PAD = 16; // top/bottom margin of .grid, must match styles.css
-  const DAY_START = 480, DAY_END = 1440; // the calendar shows 8:00 to midnight
-  const DAY_HOURS = (DAY_END - DAY_START) / 60;
-  const fitHour = () => Math.max(18, ($('body').clientHeight - GRID_PAD * 2) / DAY_HOURS);
-  const yOf = min => (min - DAY_START) / 60 * H;
-  const blockHeight = (s, e) => Math.max((e - Math.max(s, DAY_START)) / 60 * H, 16);
+  const DAY_START = 480, DAY_END = 1440; // times a project may use: 8:00 to midnight
+  // The visible scale is flexible: it follows the working schedule (Planner -> Working time)
+  // and stretches only as far as needed to show projects that lie outside it.
+  let VS = DAY_START, VE = DAY_END;
+  function viewRange(days) {
+    let s = planCfg.from, e = planCfg.to;
+    days.forEach(d => blocksOn(key(d)).forEach(b => {
+      s = Math.min(s, Math.floor(b.start / 60) * 60);
+      e = Math.max(e, Math.ceil(b.end / 60) * 60);
+    }));
+    VS = s;
+    VE = Math.max(e, s + 60);
+  }
+  const fitHour = () => Math.max(18, ($('body').clientHeight - GRID_PAD * 2) / ((VE - VS) / 60));
+  const yOf = min => (min - VS) / 60 * H;
+  const blockHeight = (s, e) => Math.max((e - Math.max(s, VS)) / 60 * H, 16);
 
   function renderGrid() {
     const body = $('body');
-    H = fitHour();
     const days = view === 'day' ? [sel] : Array.from({ length: 7 }, (_, i) => addDays(weekStart(sel), i));
+    viewRange(days);
+    H = fitHour();
     const grid = el('div', 'grid');
     grid.style.setProperty('--cols', days.length);
     grid.style.setProperty('--hour', `${H}px`);
-    grid.style.height = `${H * DAY_HOURS}px`;
+    grid.style.height = `${H * (VE - VS) / 60}px`;
 
     const hours = el('div', 'hours');
     const step = H < 20 ? 2 : 1;
     const now = new Date(), todayK = key(now);
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    const showNow = nowMin >= DAY_START && days.some(d => key(d) === todayK);
+    const showNow = nowMin >= VS && nowMin <= VE && days.some(d => key(d) === todayK);
     const ampm = () => 'AM'; // the scale is 12-hour without PM: 13:00 reads "1 AM"
-    for (let h = DAY_START / 60; h <= DAY_END / 60; h += step) {
+    for (let h = VS / 60; h <= VE / 60; h += step) {
       if (showNow && Math.abs(h * 60 - nowMin) / 60 * H < 15) continue; // the "now" badge takes this place
       const s = el('span', '', `${h % 12 || 12} ${ampm(h)}`);
       s.style.top = `${yOf(h * 60)}px`;
@@ -349,7 +361,7 @@
           col.append(line);
         }
       }
-      layout(blocksOn(k).filter(blk => blk.end > DAY_START)).forEach(({ blk, c, n }) => {
+      layout(blocksOn(k)).forEach(({ blk, c, n }) => {
         const e = blk.e;
         const b = el('button', 'ev');
         b.type = 'button';
@@ -357,7 +369,8 @@
         b.classList.toggle('short', h < 48);
         b.classList.toggle('active', k === todayK && e.id === timer.sel);
         b.style.background = colorOf(e).soft;
-        b.style.top = `${yOf(Math.max(blk.start, DAY_START))}px`;
+        b.classList.toggle('done', !!e.onDial);
+        b.style.top = `${yOf(Math.max(blk.start, VS))}px`;
         b.style.height = `${h}px`;
         b.style.left = `${c / n * 100}%`;
         b.style.width = `${100 / n}%`;
@@ -373,7 +386,7 @@
       });
       col.onclick = ev => {
         if (ev.target !== col || justActed()) return;
-        const start = clamp(DAY_START + Math.floor(ev.offsetY / H * 2) * 30, DAY_START, DAY_END - 60);
+        const start = clamp(VS + Math.floor(ev.offsetY / H * 2) * 30, VS, VE - 60);
         openEditor({ date: k, slots: [{ start, end: start + 60 }] }, null, col, { x: ev.clientX, y: ev.clientY });
       };
       grid.append(col);
@@ -404,11 +417,11 @@
         b.style.width = '100%';
       }
       const dmin = Math.round(dy / H * 60 / 15) * 15;
-      if (mode === 'top') st.start = clamp(blk.start + dmin, DAY_START, blk.end - 15);
-      else if (mode === 'bottom') st.end = clamp(blk.end + dmin, Math.max(blk.start, DAY_START) + 15, DAY_END);
+      if (mode === 'top') st.start = clamp(blk.start + dmin, VS, blk.end - 15);
+      else if (mode === 'bottom') st.end = clamp(blk.end + dmin, Math.max(blk.start, VS) + 15, VE);
       else {
         const len = blk.end - blk.start;
-        st.start = clamp(blk.start + dmin, DAY_START, DAY_END - len);
+        st.start = clamp(blk.start + dmin, VS, VE - len);
         st.end = st.start + len;
         if (!e.daily) {
           const col = document.elementsFromPoint(m.clientX, m.clientY).find(n => n.classList.contains('col'));
@@ -417,7 +430,7 @@
       }
       const h = blockHeight(st.start, st.end);
       b.classList.toggle('short', h < 48);
-      b.style.top = `${yOf(Math.max(st.start, DAY_START))}px`;
+      b.style.top = `${yOf(Math.max(st.start, VS))}px`;
       b.style.height = `${h}px`;
       b.querySelector('span').textContent = `${hm(st.start)} - ${hm(st.end)}`;
     };
@@ -954,13 +967,16 @@
     const out = [], info = {};
 
     // Exact-time tasks first: they are placed as given and everything else goes around them.
+    // A time that has already passed is still written to the calendar, ticked as done.
+    let keep = kept;
     validTasks().filter(isFixed).forEach(t => {
-      const started = kept.some(e => e.plan === t.id);
+      const old = events.find(e => e.plan === t.id);
+      keep = keep.filter(e => e.plan !== t.id); // the task itself says where its block is
       const past = t.date < todayK || (t.date === todayK && t.from < now);
-      info[t.id] = { fixed: true, missed: past && !started };
-      if (!past) out.push({ id: uid(), title: t.title.trim(), date: t.date, color: t.color, onDial: false, plan: t.id, slots: [{ start: t.from, end: t.to }] });
+      info[t.id] = { fixed: true, past };
+      out.push({ id: old ? old.id : uid(), title: t.title.trim(), date: t.date, color: t.color, onDial: old ? !!old.onDial : past, plan: t.id, slots: [{ start: t.from, end: t.to }] });
     });
-    const busy = kept.concat(out);
+    const busy = keep.concat(out);
 
     const byDeadline = (a, b) => a.t.deadline.localeCompare(b.t.deadline) || b.t.diff - a.t.diff;
     const list = validTasks().filter(t => !isFixed(t)).map(t => {
@@ -1025,7 +1041,7 @@
       });
     }
     list.forEach(x => { info[x.t.id] = { rem: x.rem, late: x.late, last: x.last, nothing: x.nothing, over: x.over }; });
-    return { kept, out, info, score: list.reduce((sum, x) => sum + x.late + x.rem, 0) };
+    return { kept: keep, out, info, score: list.reduce((sum, x) => sum + x.late + x.rem, 0) };
   }
 
   function runPlanner() {
@@ -1071,8 +1087,8 @@
       if (!r) {
         if (!isFixed(t) && t.deadline < todayK) { note.textContent = L().planOver; note.classList.add('bad'); }
       } else if (r.fixed) {
-        note.textContent = r.missed ? L().planPast : `${L().planFixed} ${shortDate(t.date)} · ${hm(t.from)} – ${hm(t.to)}`;
-        note.classList.add(r.missed ? 'bad' : 'ok');
+        note.textContent = `${r.past ? L().planRecorded : L().planFixed} ${shortDate(t.date)} · ${hm(t.from)} – ${hm(t.to)}`;
+        note.classList.add('ok');
       } else if (r.nothing) { note.textContent = r.over ? L().planOver : L().planAllDone; if (r.over) note.classList.add('bad'); }
       else if (r.rem + r.late > 0) { note.textContent = L().planShort(fmtH(r.rem + r.late)); note.classList.add('bad'); }
       else { note.textContent = `${L().planFits} · ${L().planEnds} ${shortDate(r.last)}`; note.classList.add('ok'); }
