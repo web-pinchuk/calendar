@@ -648,3 +648,35 @@ button { cursor: pointer; border: 0; background: none; }
   .plan-foot { flex-direction: row; align-items: center; }
   .day-row { grid-template-columns: 84px minmax(0, 1fr) 10px minmax(0, 1fr) 30px; gap: 6px; }
 }
+
+/* ================= v21 ================= */
+/* Working hours: rows span the whole width; today is a violet button */
+.day-row { grid-template-columns: 96px minmax(0, 1fr) 14px minmax(0, 1fr); }
+.day-row.today .day-chip, .day-row.today .day-chip.on { background: var(--violet); color: #1b1230; box-shadow: none; }
+.day-row.today .day-chip:not(.on) { opacity: .6; }
+.day-row.today .day-chip:hover { background: #c4a7f8; }
+
+/* Planner: dashed "add project" area above the tabs, equal-width project fields, bin icon */
+.plan-add { margin: 0 28px 14px; height: 58px; border: 1.5px dashed #bfc3cb; border-radius: 14px; background: transparent; color: var(--ink); font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px; flex: none; }
+.plan-add:hover { border-color: #8a5be8; background: rgba(181, 146, 245, .1); color: #5b2fc0; }
+.task-fields.by-hours { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.task-fields.by-days { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(186px, 1.35fr) minmax(0, .65fr); }
+.task .rm:hover { color: #c2371a; }
+
+/* Dial centre: project colour, play/stop icon, regular digits */
+.dial-btn { gap: 6px; box-shadow: 0 6px 22px rgba(0, 0, 0, .28); transition: background-color .45s ease, box-shadow .2s, filter .2s; }
+.dial-btn:hover { background: var(--violet); filter: brightness(1.05); }
+.dial-btn.run { box-shadow: 0 0 0 5px rgba(255, 255, 255, .22), 0 6px 22px rgba(0, 0, 0, .3); }
+.dial-btn.swap { animation: tone-pop .5s ease; }
+@keyframes tone-pop {
+  0% { transform: translate(-50%, -50%) scale(.88); }
+  55% { transform: translate(-50%, -50%) scale(1.06); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+.dial-time, .dial-time small { font-weight: 400; }
+.dial-state { margin: 0; height: 18px; display: grid; place-items: center; color: #1b1230; }
+@media (max-width: 720px) {
+  .plan-add { margin: 0 16px 12px; }
+  .day-row { grid-template-columns: 84px minmax(0, 1fr) 10px minmax(0, 1fr); }
+  .task-fields.by-days, .task-fields.by-hours { grid-template-columns: 1fr 1fr; }
+}
