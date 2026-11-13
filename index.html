@@ -126,12 +126,14 @@
       <h3 data-i18n="planner">Planner</h3>
       <button type="button" class="plan-x" id="planClose" aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     </div>
-    <button type="button" class="plan-add" id="planAdd"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="planAddTask">Add project</span></button>
     <div class="plan-tabs" id="planTabs" role="tablist">
       <button type="button" role="tab" data-tab="projects" data-i18n="planProjectsTitle">Projects</button>
-      <button type="button" role="tab" data-tab="schedule" data-i18n="planSchedule">Schedule</button>
+      <button type="button" role="tab" data-tab="schedule" data-i18n="planSchedule">Working hours</button>
+      <button type="button" role="tab" data-tab="stats" data-i18n="planStats">Statistics</button>
     </div>
+    <button type="button" class="plan-add" id="planAdd"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="planAddTask">Add project</span></button>
     <div class="plan-body">
+      <section class="plan-pane" data-pane="stats" id="planStats"></section>
       <section class="plan-pane" data-pane="projects">
         <div id="planTasks"></div>
       </section>
