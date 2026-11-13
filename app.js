@@ -1065,6 +1065,33 @@
       if (left > 0 && left <= alerts.lead) once(`r:${pid}`, 'remind', blk.e.title, `${L().inMin(left)} · ${time}`);
     });
     if (changed) save('cd.sent', sent);
+    extSchedule();
+  }
+
+  // The browser extension (toolbar button + side panel) reminds even when no calendar page is
+  // open. It cannot read the calendar itself, so the page leaves it a ready list of the alerts
+  // of the next 7 days in localStorage ('cd.ext'): time, texts and the sound of each one.
+  let extLast = '';
+  function extSchedule() {
+    const now = Date.now(), list = [];
+    const add = (name, at, title, body) => { const cfg = alerts.ev[name]; if (cfg.on && at > now) list.push({ t: at, n: name, title, body, s: cfg.s }); };
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(new Date(), i), k = key(day), at = m => day.getTime() + m * 60000;
+      const dp = dayPlan(k), blocks = blocksOn(k);
+      if (dp.on) add('dayEnd', at(dp.to), L().aDayEnd, L().aDayEndBody);
+      blocks.forEach(blk => {
+        const time = `${hm(blk.start)} – ${hm(blk.end)}`;
+        if (blk.e.id === LUNCH) { add('lunch', at(blk.start), L().aLunch, time); return; }
+        add('start', at(blk.start), blk.e.title, `${L().aStart} · ${time}`);
+        if (!blocks.some(x => x.start === blk.end) && !(dp.on && dp.to === blk.end)) add('end', at(blk.end), blk.e.title, `${L().aEnd} · ${time}`);
+        add('remind', at(blk.start - alerts.lead), blk.e.title, `${L().inMin(alerts.lead)} · ${time}`);
+      });
+    }
+    list.sort((a, b) => a.t - b.t);
+    const json = JSON.stringify({ v: 1, vol: alerts.vol, sticky: alerts.sticky, list: list.slice(0, 150) });
+    if (json === extLast) return;
+    extLast = json;
+    try { localStorage.setItem('cd.ext', json); } catch { /* storage unavailable */ }
   }
 
   // ----- Settings window: Notifications in the header menu -----
