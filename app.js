@@ -1853,7 +1853,9 @@
   // Sessions of one person for the last 7 days, newest day first.
   function personLog(v, online) {
     const box = el('div', 'person-log');
-    const now = Date.now(), log = ((v && v.log) || []).filter(s => now - s.b < WEEK_MS).sort((x, y) => y.a - x.a);
+    // A mark left before sessions were recorded still counts as one short visit.
+    const saved = v && v.log.length ? v.log : v && v.seen ? [{ a: v.seen, b: v.seen }] : [];
+    const now = Date.now(), log = saved.filter(s => now - s.b < WEEK_MS).sort((x, y) => y.a - x.a);
     if (!log.length) { box.append(el('p', '', L().pNoLog)); return box; }
     const total = log.reduce((sum, s) => sum + (s.b - s.a), 0);
     box.append(el('p', 'person-sum', `${L().pWeek}: ${L().pVisits(log.length)} · ${spanText(total)}`));
