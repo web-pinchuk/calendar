@@ -30,7 +30,7 @@
       planWork: 'Working time', planFrom: 'From', planTo: 'To', planBlock: 'Focus block', planGap: 'Break', noBreak: 'No break', h: 'h', min: ' min',
       planProjectsTitle: 'Projects', planName: 'Project', planHours: 'Hours', planDeadline: 'Deadline', planDiff: 'Difficulty', diff: ['Easy', 'Medium', 'Hard'],
       planAddTask: 'Add project', removeTask: 'Remove project', planClear: 'Clear plan', planRun: 'Save', planSaved: 'Plan saved',
-      planSchedule: 'Schedule', planUsual: 'Usual hours', planBreaks: 'Focus and breaks', planReset: 'Back to the usual hours',
+      planSchedule: 'Working hours', planUsual: 'Usual hours', planBreaks: 'Focus and breaks', planReset: 'Back to the usual hours',
       planNoTasks: 'No projects yet. Add the first one.', planNone: 'Add a project with a name and dates first.',
       planNeed: 'To do', planFree: 'free before the last deadline', planDone: 'done', planLeft: 'left',
       planFits: 'Fits', planEnds: 'finishes', planAllDone: 'Nothing left to plan',
@@ -70,7 +70,7 @@
       planWork: 'Робочий час', planFrom: 'З', planTo: 'До', planBlock: 'Блок роботи', planGap: 'Перерва', noBreak: 'Без перерви', h: ' год', min: ' хв',
       planProjectsTitle: 'Проєкти', planName: 'Проєкт', planHours: 'Години', planDeadline: 'Дедлайн', planDiff: 'Складність', diff: ['Легко', 'Середньо', 'Важко'],
       planAddTask: 'Додати проєкт', removeTask: 'Прибрати проєкт', planClear: 'Очистити план', planRun: 'Зберегти', planSaved: 'План збережено',
-      planSchedule: 'Графік', planUsual: 'Звичайний графік', planBreaks: 'Блоки й перерви', planReset: 'Повернути звичайний графік',
+      planSchedule: 'Робочі години', planUsual: 'Звичайний графік', planBreaks: 'Блоки й перерви', planReset: 'Повернути звичайний графік',
       planNoTasks: 'Проєктів ще немає. Додайте перший.', planNone: 'Спершу додайте проєкт з назвою й датами.',
       planNeed: 'Залишилось', planFree: 'вільно до останнього дедлайну', planDone: 'зроблено', planLeft: 'залишилось',
       planFits: 'Вміщається', planEnds: 'завершення', planAllDone: 'Більше нічого планувати',
@@ -821,7 +821,7 @@
   let timer = { day: key(new Date()), sessions: [], run: null, sel: null, ...load('cd.timer3', {}) };
   delete timer.mode; delete timer.half;
   function saveTimer() { save('cd.timer3', timer); }
-  const trackKey = e => e.plan || e.id;
+  const trackKey = e => e.plan || e.proj || e.id;
   { // sessions saved by older versions were keyed by the block id
     const toKey = id => { const e = events.find(x => x.id === id); return e ? trackKey(e) : id; };
     timer.sessions.forEach(s => { s.id = toKey(s.id); });
@@ -1012,11 +1012,24 @@
 
     const p = list.find(x => x.id === selId) || { id: null, title: '—', slots: [], planned: [] };
     const t = dialTotal(p, isToday), on = isToday && !!timer.run && timer.run.id === p.id;
-    $('dialCat').textContent = p.title;
     $('dialTime').innerHTML = `${fmt(t)}<small>:${pad(Math.floor(t / 1000) % 60)}</small>`;
-    $('dialState').textContent = isToday ? (on ? L().stop : L().start) : L().daysShort[dow(sel)];
-    $('dialBtn').classList.toggle('run', on);
-    $('dialBtn').classList.toggle('idle', !isToday);
+    const btn = $('dialBtn'), tone = p.id ? (COLOR[p.color] || PALETTE[0]).soft : '';
+    if (btn.dataset.tone !== tone) { // the button takes the colour of the selected project
+      btn.dataset.tone = tone;
+      btn.style.background = tone;
+      btn.classList.remove('swap');
+      void btn.offsetWidth; // restart the colour-change animation
+      btn.classList.add('swap');
+    }
+    btn.title = p.id ? p.title : '';
+    const icon = !isToday ? '' : on ? 'stop' : 'play';
+    if ($('dialState').dataset.icon !== icon) {
+      $('dialState').dataset.icon = icon;
+      $('dialState').innerHTML = icon === 'play' ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>'
+        : icon === 'stop' ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>' : '';
+    }
+    btn.classList.toggle('run', on);
+    btn.classList.toggle('idle', !isToday);
     $('dialBtn').setAttribute('aria-label', isToday ? `${on ? L().stopTimer : L().startTimer}: ${p.title}` : p.title);
   }
 
@@ -1034,8 +1047,8 @@
   // started stay in the calendar and count as done hours; everything later is re-planned.
   let tasks = load('cd.tasks', []) || [];
   let planCfg = { days: [1, 1, 1, 1, 1, 0, 0], from: 600, to: 1080, block: 120, gap: 15, ...load('cd.planCfg', {}) };
-  planCfg.from = Math.floor(planCfg.from / 60) * 60; // working hours are whole hours
-  planCfg.to = Math.ceil(planCfg.to / 60) * 60;
+  // The default week is fixed: Monday to Friday, 10:00-18:00. Any day can get its own hours.
+  planCfg.days = [1, 1, 1, 1, 1, 0, 0]; planCfg.from = 600; planCfg.to = 1080;
   if (!planCfg.byDate || typeof planCfg.byDate !== 'object') planCfg.byDate = {};
   { // exceptions for days long gone are dropped
     const old = key(addDays(new Date(), -21));
@@ -1079,8 +1092,8 @@
     const kept = [], pinned = {};
     const total = slots => slots.reduce((sum, s) => sum + s.end - s.start, 0);
     events.forEach(e => {
-      if (!e.plan) { kept.push(e); return; }
-      if (e.pin && keepPinned && tasks.some(t => t.id === e.plan)) {
+      if (!e.plan || !tasks.some(t => t.id === e.plan)) { kept.push(e); return; } // not (or no longer) the planner's
+      if (e.pin && keepPinned) {
         kept.push(e);
         pinned[e.plan] = (pinned[e.plan] || 0) + total(e.date > today ? e.slots : e.date === today ? e.slots.filter(s => s.start >= now) : []);
         return;
@@ -1336,8 +1349,19 @@
     rm.type = 'button';
     rm.title = L().removeTask;
     rm.setAttribute('aria-label', L().removeTask);
-    rm.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>';
-    rm.onclick = () => { tasks = tasks.filter(x => x !== t); planResult = null; saveTasks(); renderPlanner(); };
+    rm.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+    rm.onclick = () => {
+      // Removing a project from the plan never removes anything from the calendar: its blocks
+      // stay there as ordinary entries (`proj` keeps their tracked time and shared dial ring).
+      events.forEach(e => { if (e.plan === t.id) { e.proj = e.plan; delete e.plan; delete e.pin; } });
+      saveEvents();
+      tasks = tasks.filter(x => x !== t);
+      planResult = null;
+      saveTasks();
+      render();
+      renderTimer();
+      renderPlanner();
+    };
     const note = el('div', 'task-note');
     note.dataset.id = t.id;
     buildFields();
@@ -1402,14 +1426,7 @@
       from.disabled = to.disabled = !dp.on;
       from.onchange = () => setDay(k, { from: +from.value });
       to.onchange = () => setDay(k, { to: +to.value });
-      const reset = el('button', 'rm');
-      reset.type = 'button';
-      reset.title = L().planReset;
-      reset.setAttribute('aria-label', L().planReset);
-      reset.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg>';
-      reset.style.visibility = custom ? 'visible' : 'hidden';
-      reset.onclick = () => { delete planCfg.byDate[k]; scheduleChanged(); };
-      row.append(chip, from, el('span', 'dash', '–'), to, reset);
+      row.append(chip, from, el('span', 'dash', '–'), to);
       return row;
     }));
   }
@@ -1418,16 +1435,7 @@
     $('planDlg').dataset.tab = planTab;
     document.querySelectorAll('#planTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === planTab));
     renderPlanWeek();
-    $('planDays').replaceChildren(...L().daysShort.map((d, i) => {
-      const b = el('button', planCfg.days[i] ? 'on' : '', d);
-      b.type = 'button';
-      b.setAttribute('aria-pressed', !!planCfg.days[i]);
-      b.onclick = () => { planCfg.days[i] = planCfg.days[i] ? 0 : 1; scheduleChanged(); };
-      return b;
-    }));
     const half = (a, b) => Array.from({ length: (b - a) / 30 + 1 }, (_, i) => a + i * 30);
-    fillSelect($('planFrom'), hourly(DAY_START, DAY_END - 60), hm, planCfg.from);
-    fillSelect($('planTo'), hourly(DAY_START + 60, DAY_END), clock, planCfg.to);
     fillSelect($('planBlock'), [60, 90, 120, 180, 240], fmtH, planCfg.block);
     fillSelect($('planGap'), [0, 10, 15, 30], v => (v ? `${v}${L().min}` : L().noBreak), planCfg.gap);
     fillSelect($('planLunchFrom'), half(DAY_START, DAY_END - 30), hm, lunch.slots[0].start);
@@ -1447,12 +1455,8 @@
     document.querySelectorAll('#planTabs button').forEach(b => { b.onclick = () => { planTab = b.dataset.tab; renderPlanner(); }; });
     $('planWeekPrev').onclick = () => { planWeek = addDays(planWeek, -7); renderPlanWeek(); };
     $('planWeekNext').onclick = () => { planWeek = addDays(planWeek, 7); renderPlanWeek(); };
-    [['planFrom', 'from'], ['planTo', 'to'], ['planBlock', 'block'], ['planGap', 'gap']].forEach(([id, prop]) => {
-      $(id).onchange = () => {
-        planCfg[prop] = +$(id).value;
-        if (planCfg.to <= planCfg.from) { if (prop === 'from') planCfg.to = Math.min(planCfg.from + 60, DAY_END); else planCfg.from = Math.max(planCfg.to - 60, DAY_START); }
-        scheduleChanged();
-      };
+    [['planBlock', 'block'], ['planGap', 'gap']].forEach(([id, prop]) => {
+      $(id).onchange = () => { planCfg[prop] = +$(id).value; scheduleChanged(); };
     });
     // Lunch break: shown in the calendar on working days and kept free by the planner.
     const lunchChanged = () => { planResult = null; saveLunch(); render(); renderTimer(); renderPlanner(); };
@@ -1464,12 +1468,16 @@
       lunchChanged();
     };
     $('planAdd').onclick = () => {
-      tasks.push(normalizeTask({ id: uid(), title: '', color: PALETTE[tasks.length % PALETTE.length].id }));
+      // Newest first; it gets the first project colour that is not taken yet.
+      const hues = PALETTE.filter(c => c.id !== 'neutral');
+      const free = hues.find(c => !tasks.some(t => t.color === c.id)) || hues[tasks.length % hues.length];
+      tasks.unshift(normalizeTask({ id: uid(), title: '', color: free.id }));
       planResult = null;
+      planTab = 'projects';
       saveTasks();
       renderPlanner();
-      const names = document.querySelectorAll('#planTasks .t-name');
-      names[names.length - 1].focus();
+      $('planDlg').querySelector('.plan-body').scrollTop = 0;
+      document.querySelector('#planTasks .t-name').focus();
     };
     $('planRun').onclick = runPlanner;
     $('planClear').onclick = clearPlan;
@@ -1538,6 +1546,7 @@
     if (Array.isArray(remote.tasks)) tasks = remote.tasks;
     if (remote.planCfg) planCfg = { ...planCfg, ...remote.planCfg };
     if (!planCfg.byDate || typeof planCfg.byDate !== 'object') planCfg.byDate = {};
+    planCfg.days = [1, 1, 1, 1, 1, 0, 0]; planCfg.from = 600; planCfg.to = 1080; // the fixed default week
     planResult = null;
     saveEvents(); saveLunch(); saveTimer(); saveTasks(); savePlanCfg();
     setLocal('cd.updated', remote.updated || 0);
