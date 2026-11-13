@@ -46,6 +46,13 @@
       accHelp: 'Sign in with your Google account to keep the calendar in the cloud and open it on any device.',
       accNoConfig: 'Cloud sign-in is not set up yet.', accErrLoad: 'could not load the cloud library',
       accIsOff: 'Not signed in', accIsOk: 'Synced', accIsBusy: 'Syncing…', accIsError: 'Sync failed',
+      accShare: 'View access', accShareHelp: 'People with these Google emails can open your calendar by the link. They can only look.',
+      accMailPh: 'name@gmail.com', accAdd: 'Add', accCopy: 'Copy link', accCopied: 'Link copied', accRemove: 'Remove access',
+      accNone: 'Nobody has access yet.', accBadMail: 'Enter a full email address', accHas: 'This email is already in the list',
+      accOwn: 'This is your own email', accSaved: 'Access saved', accGone: 'Access removed',
+      viewOnly: 'View only', gateTitle: 'Shared calendar', gateSignIn: 'Sign in with the Google account that was given access.',
+      gateLoading: 'Opening the calendar…', gateDenied: m => 'No access for ' + m + '. Ask the owner to add this email.',
+      gateError: 'Could not open the calendar. Try again later.', gateOther: 'Use another account',
     },
     uk: {
       months: ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'],
@@ -91,6 +98,13 @@
       planMade: (b, d) => 'Заплановано блоків: ' + b + ', днів: ' + d, syncLocal: 'Лише цей пристрій',
       accTitle: 'Акаунт', accIn: 'Увійти через Google', accOut: 'Вийти', accAs: 'Ви ввійшли як', close: 'Закрити',
       accHelp: 'Увійдіть через Google-акаунт, щоб календар зберігався в хмарі й відкривався на будь-якому пристрої.',
+      accShare: 'Доступ для перегляду', accShareHelp: 'Люди з цими Google-поштами можуть відкрити ваш календар за посиланням. Лише перегляд.',
+      accMailPh: 'name@gmail.com', accAdd: 'Додати', accCopy: 'Скопіювати посилання', accCopied: 'Посилання скопійовано', accRemove: 'Забрати доступ',
+      accNone: 'Доступу ще ні в кого немає.', accBadMail: 'Введіть повну адресу пошти', accHas: 'Ця пошта вже є у списку',
+      accOwn: 'Це ваша власна пошта', accSaved: 'Доступ збережено', accGone: 'Доступ забрано',
+      viewOnly: 'Лише перегляд', gateTitle: 'Спільний календар', gateSignIn: 'Увійдіть через Google-акаунт, якому надали доступ.',
+      gateLoading: 'Відкриваю календар…', gateDenied: m => 'Немає доступу для ' + m + '. Попросіть власника додати цю пошту.',
+      gateError: 'Не вдалося відкрити календар. Спробуйте пізніше.', gateOther: 'Інший акаунт',
       accNoConfig: 'Вхід у хмару ще не налаштовано.', accErrLoad: 'не вдалося завантажити хмарну бібліотеку',
       accIsOff: 'Ви не ввійшли', accIsOk: 'Синхронізовано', accIsBusy: 'Синхронізація…', accIsError: 'Помилка синхронізації',
     },
@@ -130,12 +144,20 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(v, b));
   const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 
+  // Shared link (?u=<owner id>): the calendar of another account, for viewing only. Nothing of
+  // it is kept in this browser, and nothing here is ever sent back.
+  const GUEST = (() => { const u = new URLSearchParams(location.search).get('u'); return u && /^[A-Za-z0-9]{6,128}$/.test(u) ? u : null; })();
+  const GUEST_KEYS = ['cd.view', 'cd.lang']; // the only things a viewer's browser remembers
+  if (GUEST) document.body.classList.add('guest');
+
   const load = (k, fallback) => {
+    if (GUEST && !GUEST_KEYS.includes(k)) return fallback;
     try { const v = JSON.parse(localStorage.getItem(k)); return v ?? fallback; } catch { return fallback; }
   };
   const SYNCED_KEYS = ['cd.events', 'cd.lunch', 'cd.timer3', 'cd.tasks', 'cd.planCfg'];
   let syncQuiet = true; // true while starting up or applying cloud data: those saves are not local edits
   const save = (k, v) => {
+    if (GUEST && !GUEST_KEYS.includes(k)) return;
     try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ }
     if (!syncQuiet && SYNCED_KEYS.includes(k)) markDirty();
   };
@@ -210,6 +232,7 @@
     $('bell').setAttribute('aria-label', L().bell);
     $('fColor').title = L().color;
     $('fColor').setAttribute('aria-label', L().color);
+    if (GUEST) document.querySelectorAll('[data-i18n="planner"]').forEach(n => { n.textContent = L().planStats; }); // a viewer gets the statistics only
   }
   document.querySelectorAll('#lang button').forEach(b => {
     b.onclick = () => {
@@ -403,6 +426,7 @@
         b.onclick = ev => {
           ev.stopPropagation();
           if (justActed()) return;
+          if (GUEST) { pickOnDial(e); return; }
           openEditor({ ...e, slots: e.slots.map(s => ({ ...s })) }, b, null, { x: ev.clientX, y: ev.clientY });
         };
         col.append(b);
@@ -419,7 +443,7 @@
         lastEnd = lastEnd === null ? blk.end : Math.max(lastEnd, blk.end);
       });
       col.onclick = ev => {
-        if (ev.target !== col || justActed()) return;
+        if (GUEST || ev.target !== col || justActed()) return;
         const start = clamp(VS + Math.floor(ev.offsetY / H * 2) * 30, VS, VE - 60);
         openEditor({ date: k, slots: [{ start, end: start + 60 }] }, null, col, { x: ev.clientX, y: ev.clientY });
       };
@@ -492,7 +516,7 @@
 
   // Drag the middle of a block to move it, a grip on its top/bottom edge to stretch it (15-min steps).
   function startDrag(ev, blk, b, mode) {
-    if (ev.button !== 0) return;
+    if (ev.button !== 0 || GUEST) return;
     const e = blk.e;
     const st = { start: blk.start, end: blk.end, date: e.date, moved: false };
     const x0 = ev.clientX, y0 = ev.clientY;
@@ -973,6 +997,7 @@
     arcLayer = svgEl('g', {}, svg);
 
     $('dialBtn').onclick = () => {
+      if (GUEST) return; // a viewer only watches
       rollover();
       if (key(sel) !== timer.day) return; // the timer runs for today only
       const id = ensureDialSel(timer.day);
@@ -1060,14 +1085,14 @@
       btn.classList.add('swap');
     }
     btn.title = p.id ? p.title : '';
-    const icon = !isToday ? '' : on ? 'stop' : 'play';
+    const icon = !isToday || GUEST ? '' : on ? 'stop' : 'play';
     if ($('dialState').dataset.icon !== icon) {
       $('dialState').dataset.icon = icon;
       $('dialState').innerHTML = icon === 'play' ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>'
         : icon === 'stop' ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>' : '';
     }
     btn.classList.toggle('run', on);
-    btn.classList.toggle('idle', !isToday);
+    btn.classList.toggle('idle', !isToday || !!GUEST);
     $('dialBtn').setAttribute('aria-label', isToday ? `${on ? L().stopTimer : L().startTimer}: ${p.title}` : p.title);
   }
 
@@ -1539,7 +1564,7 @@
 
   function buildPlanner() {
     const dlg = $('planDlg');
-    $('planCard').onclick = () => { planWeek = weekStart(sel); statMonth = new Date(sel.getFullYear(), sel.getMonth(), 1); adoptExtraTimes(); renderPlanner(); dlg.showModal(); };
+    $('planCard').onclick = () => { if (GUEST) planTab = 'stats'; planWeek = weekStart(sel); statMonth = new Date(sel.getFullYear(), sel.getMonth(), 1); adoptExtraTimes(); renderPlanner(); dlg.showModal(); };
     // Statistics: month arrows, and one tooltip shared by the chart columns, project rows and activity cells.
     const pane = $('planStats'), tip = el('div', 'st-tip');
     tip.hidden = true;
@@ -1761,7 +1786,8 @@
   const fbConfig = window.FIREBASE_CONFIG || null; // filled in firebase-config.js
   let fb = null, user = null, docRef = null, unsub = null;
   let pushTimer = null, pendingRemote = null, justSignedIn = false, syncError = '';
-  const setLocal = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } };
+  let viewers = [], guestOwner = ''; // emails allowed to view this calendar; whose calendar a viewer looks at
+  const setLocal = (k, v) => { if (GUEST) return; try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } };
   try { localStorage.removeItem('cd.sync'); } catch { /* storage unavailable */ } // old GitHub access token
 
   function markDirty() {
@@ -1770,7 +1796,7 @@
     schedulePush();
   }
   function schedulePush() {
-    if (!user) return;
+    if (!user || GUEST) return;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(pushNow, 1200);
   }
@@ -1783,19 +1809,88 @@
     b.setAttribute('aria-label', label);
     $('syncStatus').textContent = label;
     // Under the app name: which account the calendar belongs to.
-    $('brandSub').textContent = user ? (state === 'error' ? `${user.email} · ${L().accIsError}` : user.email) : L().syncLocal;
-    $('accHelp').textContent = !fbConfig ? L().accNoConfig : user ? `${L().accAs} ${user.email}` : L().accHelp;
+    $('brandSub').textContent = GUEST ? (guestOwner ? `${guestOwner} · ${L().viewOnly}` : L().viewOnly)
+      : user ? (state === 'error' ? `${user.email} · ${L().accIsError}` : user.email) : L().syncLocal;
+    $('accHelp').textContent = !fbConfig ? L().accNoConfig : user ? `${L().accAs} ${user.email}${GUEST ? ' · ' + L().viewOnly : ''}` : GUEST ? L().gateSignIn : L().accHelp;
     $('accIn').hidden = !fbConfig || !!user;
     $('accOut').hidden = !user;
+    renderAccess();
+  }
+
+  // ----- View access: the owner lists Google emails; those people open the calendar by a link -----
+  const shareLink = () => `${location.origin}${location.pathname}?u=${user.uid}`;
+  const accMsg = text => { $('accMsg').textContent = text; };
+  function renderAccess() {
+    const box = $('access');
+    box.hidden = !user || !!GUEST;
+    if (box.hidden) return;
+    $('accLink').value = shareLink();
+    $('accList').replaceChildren(...(viewers.length ? viewers.map(mail => {
+      const row = el('div', 'acc-row');
+      const rm = el('button', 'acc-rm');
+      rm.type = 'button';
+      rm.title = L().accRemove;
+      rm.setAttribute('aria-label', `${L().accRemove}: ${mail}`);
+      rm.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>';
+      rm.onclick = () => setViewers(viewers.filter(v => v !== mail), L().accGone);
+      row.append(el('span', '', mail), rm);
+      return row;
+    }) : [el('p', 'acc-none', L().accNone)]));
+  }
+  async function setViewers(list, done) {
+    const before = viewers;
+    viewers = list;
+    renderAccess();
+    try {
+      await fb.setDoc(docRef, { viewers: list, owner: user.displayName || user.email }, { merge: true });
+      accMsg(done);
+    } catch (err) {
+      viewers = before;
+      renderAccess();
+      accMsg(`${L().accIsError}: ${err.code || err.message}`);
+    }
+  }
+  function addViewer() {
+    const mail = $('accMail').value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { accMsg(L().accBadMail); return; }
+    if (mail === (user.email || '').toLowerCase()) { accMsg(L().accOwn); return; }
+    if (viewers.includes(mail)) { accMsg(L().accHas); return; }
+    $('accMail').value = '';
+    setViewers([...viewers, mail], L().accSaved);
+  }
+
+  // ----- Viewer side: the screen shown until the shared calendar may be opened -----
+  function gate(state) {
+    const g = $('gate');
+    g.hidden = state === 'ok';
+    if (g.hidden) return;
+    $('gateTitle').textContent = L().gateTitle;
+    $('gateText').textContent = { signin: L().gateSignIn, loading: L().gateLoading, denied: L().gateDenied(user ? user.email : ''), error: L().gateError }[state];
+    $('gateIn').textContent = L().accIn;
+    $('gateOut').textContent = L().gateOther;
+    $('gateIn').hidden = state !== 'signin';
+    $('gateOut').hidden = state !== 'denied';
+  }
+  function onShared(snap) {
+    if (!snap.exists()) { gate('denied'); return; }
+    try {
+      const d = snap.data();
+      guestOwner = d.owner || '';
+      applyRemote({ ...JSON.parse(d.json), updated: d.updated });
+      if ($('planDlg').open) renderPlanner();
+      syncError = '';
+      setSyncState('ok');
+      gate('ok');
+    } catch (err) { gate('error'); }
   }
 
   async function pushNow() {
-    if (!user) return;
+    if (!user || GUEST) return;
     setSyncState('busy');
     try {
       const stamp = load('cd.updated', 0) || Date.now();
       setLocal('cd.updated', stamp);
-      await fb.setDoc(docRef, { updated: stamp, json: JSON.stringify({ v: 1, events, lunch, timer, tasks, planCfg }) });
+      await fb.setDoc(docRef, { updated: stamp, json: JSON.stringify({ v: 1, events, lunch, timer, tasks, planCfg }) }, { merge: true }); // merge keeps the access list
       if (load('cd.updated', 0) === stamp) setLocal('cd.dirty', false); // nothing changed meanwhile
       syncError = '';
       setSyncState('ok');
@@ -1844,6 +1939,7 @@
   }
 
   function onRemote(snap) {
+    if (snap.exists()) { const list = snap.data().viewers; viewers = Array.isArray(list) ? list : []; renderAccess(); }
     if (snap.metadata.hasPendingWrites) return; // our own write, still on its way
     const fresh = justSignedIn;
     justSignedIn = false;
@@ -1860,7 +1956,7 @@
     const dlg = $('syncDlg');
     $('cloud').onclick = () => { setSyncState($('cloud').dataset.state || 'off'); dlg.showModal(); };
     $('syncClose').onclick = () => dlg.close();
-    $('accIn').onclick = async () => {
+    $('accIn').onclick = $('gateIn').onclick = async () => {
       if (!fb) return;
       try {
         justSignedIn = true;
@@ -1872,8 +1968,17 @@
         setSyncState('error');
       }
     };
-    $('accOut').onclick = async () => { if (fb) await fb.signOut(fb.$auth); dlg.close(); };
+    $('accOut').onclick = $('gateOut').onclick = async () => { if (fb) await fb.signOut(fb.$auth); dlg.close(); };
+    $('accAdd').onclick = addViewer;
+    $('accMail').onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); addViewer(); } };
+    $('accMail').oninput = () => accMsg('');
+    $('accLink').onfocus = () => $('accLink').select();
+    $('accCopy').onclick = async () => {
+      try { await navigator.clipboard.writeText(shareLink()); } catch { $('accLink').select(); document.execCommand('copy'); }
+      accMsg(L().accCopied);
+    };
     setSyncState('off');
+    if (GUEST) gate(fbConfig ? 'loading' : 'error');
     if (!fbConfig) return;
     try {
       const [app, auth, store] = await Promise.all([import(`${FB_URL}app.js`), import(`${FB_URL}auth.js`), import(`${FB_URL}firestore.js`)]);
@@ -1883,6 +1988,14 @@
         user = u;
         if (unsub) { unsub(); unsub = null; }
         syncError = '';
+        viewers = [];
+        accMsg('');
+        if (GUEST) { // someone else's calendar: read it, never write
+          setSyncState(u ? 'busy' : 'off');
+          gate(u ? 'loading' : 'signin');
+          if (u) unsub = fb.onSnapshot(fb.doc(fb.$db, 'calendars', GUEST), onShared, err => gate(err.code === 'permission-denied' ? 'denied' : 'error'));
+          return;
+        }
         if (!u) { setSyncState('off'); return; }
         docRef = fb.doc(fb.$db, 'calendars', u.uid);
         setSyncState('busy');
@@ -1891,6 +2004,7 @@
     } catch (err) {
       syncError = L().accErrLoad;
       setSyncState('error');
+      if (GUEST) gate('error');
     }
   }
 
