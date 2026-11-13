@@ -55,6 +55,12 @@
       ownOn: 'Own calendar: allowed', ownOff: 'Allow their own calendar', ownTag: 'own calendar', ownGranted: 'Own calendar allowed', ownRevoked: 'Own calendar switched off',
       accNoOwn: 'No cloud calendar for this account: kept on this device only', menuMine: 'My calendar',
       pShowLog: 'Show the visits', pWeek: 'Last 7 days', pVisits: n => n + (n === 1 ? ' visit' : ' visits'), pNoLog: 'No visits in the last 7 days.', pNow: 'now', hShort: 'h',
+      ntfTitle: 'Notifications and sounds', ntfSys: 'System notifications', ntfSysHelp: 'Windows pop-ups while the calendar is open, in a tab or as an installed app.',
+      ntfLead: 'Remind before a block', ntfVol: 'Volume', ntfSticky: 'Keep on screen until I click', ntfEvents: 'What to notify about', ntfPlay: 'Listen',
+      ntfInstall: 'Install as an app', ntfInstallHelp: 'Installed, it opens in its own window and reminds you while it is running.',
+      alertNames: { remind: 'Before a block', start: 'Block starts', end: 'Block ends', lunch: 'Lunch', dayEnd: 'End of the working day', timer: 'Timer Start / Stop', visit: 'Invited person is online' },
+      sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'No sound' },
+      aStart: 'Time to start', aEnd: 'Finished', aLunch: 'Lunch time', aDayEnd: 'The working day is over', aDayEndBody: 'Good job. Time to rest.', aVisit: 'Your calendar is being viewed',
       menuLang: 'Language', menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
       accInvite: 'Send the invitation', invSubject: 'Access to my work calendar',
       invBody: (link, mail, name, mine) => `Hello!\n\nI have given you view access to my work calendar.\n\nOpen it here: ${link}\nSign in with this Google account: ${mail}${mine ? '\n\nYou can also keep your own calendar here: ' + mine : ''}\n\n${name}`,
@@ -115,6 +121,12 @@
       ownOn: 'Власний календар: дозволено', ownOff: 'Дозволити власний календар', ownTag: 'власний календар', ownGranted: 'Власний календар дозволено', ownRevoked: 'Власний календар вимкнено',
       accNoOwn: 'Для цього акаунта немає хмарного календаря: лише на цьому пристрої', menuMine: 'Мій календар',
       pShowLog: 'Показати візити', pWeek: 'Останні 7 днів', pVisits: n => n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'візит' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'візити' : 'візитів'), pNoLog: 'За останні 7 днів візитів не було.', pNow: 'зараз', hShort: 'год',
+      ntfTitle: 'Сповіщення і звуки', ntfSys: 'Системні сповіщення', ntfSysHelp: 'Вікна Windows, поки календар відкритий: у вкладці або як встановлений застосунок.',
+      ntfLead: 'Нагадати перед блоком', ntfVol: 'Гучність', ntfSticky: 'Не зникати, доки не натисну', ntfEvents: 'Про що сповіщати', ntfPlay: 'Прослухати',
+      ntfInstall: 'Встановити як застосунок', ntfInstallHelp: 'Встановлений, він відкривається окремим вікном і нагадує, поки запущений.',
+      alertNames: { remind: 'Перед блоком', start: 'Початок блоку', end: 'Кінець блоку', lunch: 'Обід', dayEnd: 'Кінець робочого дня', timer: 'Таймер Старт / Стоп', visit: 'Запрошена людина онлайн' },
+      sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'Без звуку' },
+      aStart: 'Час починати', aEnd: 'Завершено', aLunch: 'Час обідати', aDayEnd: 'Робочий день закінчився', aDayEndBody: 'Гарна робота. Час відпочити.', aVisit: 'Ваш календар переглядають',
       menuLang: 'Мова', menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
       accInvite: 'Надіслати запрошення', invSubject: 'Доступ до мого робочого календаря',
       invBody: (link, mail, name, mine) => `Вітаю!\n\nЯ надав вам доступ на перегляд мого робочого календаря.\n\nВідкрити: ${link}\nУвійдіть через цей Google-акаунт: ${mail}${mine ? '\n\nВи також можете вести власний календар тут: ' + mine : ''}\n\n${name}`,
@@ -177,6 +189,12 @@
       ownOn: 'Свой календарь: разрешён', ownOff: 'Разрешить свой календарь', ownTag: 'свой календарь', ownGranted: 'Свой календарь разрешён', ownRevoked: 'Свой календарь выключен',
       accNoOwn: 'Для этого аккаунта нет облачного календаря: только на этом устройстве', menuMine: 'Мой календарь',
       pShowLog: 'Показать визиты', pWeek: 'Последние 7 дней', pVisits: n => n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'визит' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'визита' : 'визитов'), pNoLog: 'За последние 7 дней визитов не было.', pNow: 'сейчас', hShort: 'ч',
+      ntfTitle: 'Уведомления и звуки', ntfSys: 'Системные уведомления', ntfSysHelp: 'Окна Windows, пока календарь открыт: во вкладке или как установленное приложение.',
+      ntfLead: 'Напомнить перед блоком', ntfVol: 'Громкость', ntfSticky: 'Не исчезать, пока не нажму', ntfEvents: 'О чём уведомлять', ntfPlay: 'Прослушать',
+      ntfInstall: 'Установить как приложение', ntfInstallHelp: 'Установленное, оно открывается отдельным окном и напоминает, пока запущено.',
+      alertNames: { remind: 'Перед блоком', start: 'Начало блока', end: 'Конец блока', lunch: 'Обед', dayEnd: 'Конец рабочего дня', timer: 'Таймер Старт / Стоп', visit: 'Приглашённый человек онлайн' },
+      sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'Без звука' },
+      aStart: 'Пора начинать', aEnd: 'Завершено', aLunch: 'Время обеда', aDayEnd: 'Рабочий день закончился', aDayEndBody: 'Хорошая работа. Пора отдохнуть.', aVisit: 'Ваш календарь просматривают',
       menuLang: 'Язык', menu: 'Меню', menuNotif: 'Уведомления', menuAccess: 'Добавить человека', on: 'Вкл.', off: 'Выкл.',
       accInvite: 'Отправить приглашение', invSubject: 'Доступ к моему рабочему календарю',
       invBody: (link, mail, name, mine) => `Здравствуйте!\n\nЯ дал вам доступ на просмотр моего рабочего календаря.\n\nОткрыть: ${link}\nВойдите через этот Google-аккаунт: ${mail}${mine ? '\n\nВы также можете вести свой календарь здесь: ' + mine : ''}\n\n${name}`,
@@ -232,7 +250,7 @@
     if (GUEST && !GUEST_KEYS.includes(k)) return fallback;
     try { const v = JSON.parse(localStorage.getItem(k)); return v ?? fallback; } catch { return fallback; }
   };
-  const SYNCED_KEYS = ['cd.events', 'cd.lunch', 'cd.timer3', 'cd.tasks', 'cd.planCfg'];
+  const SYNCED_KEYS = ['cd.events', 'cd.lunch', 'cd.timer3', 'cd.tasks', 'cd.planCfg', 'cd.alerts'];
   let syncQuiet = true; // true while starting up or applying cloud data: those saves are not local edits
   const save = (k, v) => {
     if (GUEST && !GUEST_KEYS.includes(k)) return;
@@ -323,6 +341,7 @@
       renderTimer();
       renderHead();
       updatePlanInfo();
+      renderAlerts();
       setSyncState($('cloud').dataset.state || 'off'); // also redraws the access list and the people
     };
   });
@@ -927,7 +946,170 @@
     } catch { /* notification API unavailable in this context */ }
   }
 
-  $('bell').onclick = async () => {
+  // ----- Alerts: what to remind about, and with which sound (kept with the account) -----
+  // remind: N minutes before a block; start / end: a block begins or finishes; lunch; dayEnd:
+  // the working hours of today are over; timer: Start/Stop on the dial; visit: an invited
+  // person opened the calendar.
+  const ALERT_EVENTS = ['remind', 'start', 'end', 'lunch', 'dayEnd', 'timer', 'visit'];
+  const SOUND_IDS = ['chime', 'bell', 'marimba', 'ping', 'pulse', 'alarm', 'none'];
+  const ALERT_DEFAULT = {
+    vol: 70, lead: 10, sticky: false,
+    ev: {
+      remind: { on: true, s: 'ping' }, start: { on: true, s: 'chime' }, end: { on: true, s: 'bell' }, lunch: { on: true, s: 'marimba' },
+      dayEnd: { on: true, s: 'pulse' }, timer: { on: true, s: 'chime' }, visit: { on: true, s: 'ping' },
+    },
+  };
+  let alerts = ALERT_DEFAULT;
+  function setAlerts(saved) { // keeps unknown or broken values out
+    const src = saved && typeof saved === 'object' ? saved : {};
+    const ev = {};
+    ALERT_EVENTS.forEach(name => {
+      const x = (src.ev && src.ev[name]) || {}, def = ALERT_DEFAULT.ev[name];
+      ev[name] = { on: typeof x.on === 'boolean' ? x.on : def.on, s: SOUND_IDS.includes(x.s) ? x.s : def.s };
+    });
+    alerts = {
+      vol: Number.isFinite(src.vol) ? clamp(Math.round(src.vol), 0, 100) : ALERT_DEFAULT.vol,
+      lead: [5, 10, 15, 30].includes(src.lead) ? src.lead : ALERT_DEFAULT.lead,
+      sticky: !!src.sticky, ev,
+    };
+  }
+  setAlerts(load('cd.alerts', null));
+  const saveAlerts = () => save('cd.alerts', alerts);
+
+  // ----- Sounds: made in the browser, no audio files -----
+  let audio = null, master = null, alarmTimer = null;
+  function audioReady() {
+    try {
+      if (!audio) {
+        audio = new (window.AudioContext || window.webkitAudioContext)();
+        master = audio.createGain();
+        master.connect(audio.destination);
+      }
+      if (audio.state === 'suspended') audio.resume();
+      master.gain.value = alerts.vol / 100;
+      return true;
+    } catch { return false; } // audio unavailable
+  }
+  // One note: quick attack, smooth fade.
+  function note(freq, at, dur, peak, type) {
+    const t = audio.currentTime + at, osc = audio.createOscillator(), gain = audio.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(peak, t + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(gain).connect(master);
+    osc.start(t);
+    osc.stop(t + dur + 0.05);
+  }
+  const SOUNDS = {
+    chime: down => (down ? [783.99, 659.25, 523.25] : [523.25, 659.25, 783.99]).forEach((f, i) => note(f, i * 0.13, 0.7, 0.3)),
+    bell: () => { note(880, 0, 1.8, 0.3); note(1760, 0, 1.1, 0.1); note(2637, 0, 0.6, 0.05); },
+    marimba: down => (down ? [659.25, 523.25, 392] : [392, 523.25, 659.25]).forEach((f, i) => { note(f, i * 0.16, 0.35, 0.34); note(f * 4, i * 0.16, 0.12, 0.07); }),
+    ping: () => note(1318.5, 0, 0.4, 0.26),
+    pulse: () => [0, 0.28].forEach(at => { note(196, at, 0.32, 0.5); note(98, at, 0.32, 0.3); }),
+    alarm: () => [0, 0.2, 0.4, 0.6].forEach(at => note(987.77, at, 0.14, 0.24, 'triangle')),
+    none: () => {},
+  };
+  function stopAlarm() { clearInterval(alarmTimer); alarmTimer = null; }
+  // `loop`: the alarm keeps ringing until the next click or key press (two minutes at most).
+  function playSound(id, down, loop) {
+    if (!SOUNDS[id] || id === 'none' || !audioReady()) return;
+    SOUNDS[id](down);
+    if (id !== 'alarm' || !loop) return;
+    stopAlarm();
+    const until = Date.now() + 120000;
+    alarmTimer = setInterval(() => { if (Date.now() > until) stopAlarm(); else if (audioReady()) SOUNDS.alarm(); }, 1300);
+  }
+  ['pointerdown', 'keydown'].forEach(type => document.addEventListener(type, () => { audioReady(); stopAlarm(); }, true));
+
+  // One alert: a line in the corner, a system notification (when allowed) and the sound.
+  function alertUser(name, title, body, tag, quiet) {
+    const cfg = alerts.ev[name];
+    if (!cfg || !cfg.on || GUEST) return false;
+    toast(title, body);
+    if (notifOn()) {
+      const opts = { body, tag, silent: true, requireInteraction: alerts.sticky, icon: 'favicon.svg' };
+      try {
+        if (swReg) swReg.showNotification(title, opts);
+        else new Notification(title, opts);
+      } catch { /* notification API unavailable in this context */ }
+    }
+    if (!quiet) playSound(cfg.s, false, true);
+    return true;
+  }
+
+  // Looks at today's blocks and the clock; called a few times a minute.
+  function checkReminders() {
+    if (GUEST) return;
+    const now = new Date(), k = key(now), nowMin = now.getHours() * 60 + now.getMinutes();
+    const sent = load('cd.sent', {});
+    let changed = false, played = false;
+    Object.keys(sent).forEach(id => { if (sent[id] !== k) { delete sent[id]; changed = true; } });
+    const once = (id, name, title, body) => {
+      if (sent[id]) return;
+      sent[id] = k;
+      changed = true;
+      if (alertUser(name, title, body, id, played)) played = true; // one sound at a time
+    };
+    const just = m => nowMin >= m && nowMin < m + 2; // this very minute (or the one before, if the tab was asleep)
+    const dp = dayPlan(k), blocks = blocksOn(k);
+    if (dp.on && just(dp.to)) once(`d@${k}`, 'dayEnd', L().aDayEnd, L().aDayEndBody);
+    blocks.forEach(blk => {
+      const time = `${hm(blk.start)} – ${hm(blk.end)}`, pid = `${blk.e.plan || blk.e.id}@${blk.start}`; // re-planning keeps the same alert
+      if (blk.e.id === LUNCH) { if (just(blk.start)) once(`l:${pid}`, 'lunch', L().aLunch, time); return; }
+      if (just(blk.start)) once(`s:${pid}`, 'start', blk.e.title, `${L().aStart} · ${time}`);
+      // The end of a block is silent when the next one starts right away or the day is over.
+      if (just(blk.end) && !blocks.some(x => x.start === blk.end) && !(dp.on && dp.to === blk.end)) once(`e:${pid}`, 'end', blk.e.title, `${L().aEnd} · ${time}`);
+      const left = blk.start - nowMin;
+      if (left > 0 && left <= alerts.lead) once(`r:${pid}`, 'remind', blk.e.title, `${L().inMin(left)} · ${time}`);
+    });
+    if (changed) save('cd.sent', sent);
+  }
+
+  // ----- Settings window: Notifications in the header menu -----
+  let installEvent = null; // the browser offers to install the site as an app
+  addEventListener('beforeinstallprompt', ev => { ev.preventDefault(); installEvent = ev; renderAlerts(); });
+  addEventListener('appinstalled', () => { installEvent = null; renderAlerts(); });
+
+  function renderAlerts() {
+    const dlg = $('ntfDlg');
+    if (!dlg.open) return;
+    $('ntfSys').setAttribute('aria-pressed', notifOn());
+    $('ntfSticky').setAttribute('aria-pressed', alerts.sticky);
+    $('ntfLead').innerHTML = [5, 10, 15, 30].map(m => `<option value="${m}">${m}${L().min}</option>`).join('');
+    $('ntfLead').value = alerts.lead;
+    $('ntfVol').value = alerts.vol;
+    $('ntfInstallBox').hidden = !installEvent;
+    $('ntfEvents').replaceChildren(...ALERT_EVENTS.map(name => {
+      const cfg = alerts.ev[name], row = el('div', `ntf-row${cfg.on ? '' : ' off'}`);
+      const sw = el('button', 'plan-toggle');
+      sw.type = 'button';
+      sw.setAttribute('aria-pressed', cfg.on);
+      sw.append(el('i'), el('span', '', L().alertNames[name]));
+      sw.onclick = () => { cfg.on = !cfg.on; saveAlerts(); renderAlerts(); };
+      const pick = el('select');
+      pick.setAttribute('aria-label', L().alertNames[name]);
+      pick.innerHTML = SOUND_IDS.map(id => `<option value="${id}">${L().sounds[id]}</option>`).join('');
+      pick.value = cfg.s;
+      pick.disabled = !cfg.on;
+      pick.onchange = () => { cfg.s = pick.value; saveAlerts(); playSound(cfg.s); };
+      const play = el('button', 'ntf-play');
+      play.type = 'button';
+      play.title = L().ntfPlay;
+      play.setAttribute('aria-label', `${L().ntfPlay}: ${L().alertNames[name]}`);
+      play.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>';
+      play.disabled = !cfg.on || cfg.s === 'none';
+      play.onclick = () => playSound(cfg.s);
+      row.append(sw, pick, play);
+      return row;
+    }));
+  }
+
+  $('bell').onclick = () => { $('accMenu').hidden = true; $('menuBtn').setAttribute('aria-expanded', false); $('ntfDlg').showModal(); renderAlerts(); };
+  $('ntfClose').onclick = () => $('ntfDlg').close();
+  $('ntfDlg').addEventListener('click', ev => { if (ev.target === $('ntfDlg')) $('ntfDlg').close(); }); // click on the backdrop
+  $('ntfSys').onclick = async () => {
     if (!('Notification' in window)) { toast(L().notifNone, L().notifNoneBody); return; }
     if (notifOn()) {
       save('cd.notif', false);
@@ -936,25 +1118,22 @@
       const p = await Notification.requestPermission();
       if (p !== 'granted') { toast(L().notifBlocked, L().notifBlockedBody); return; }
       save('cd.notif', true);
-      push(L().notifOn, L().notifOnBody(REMIND_MIN), 'cd-on');
+      push(L().notifOn, L().notifOnBody(alerts.lead), 'cd-on');
     }
     renderHead();
+    renderAlerts();
   };
-
-  function checkReminders() {
-    const now = new Date(), k = key(now), nowMin = now.getHours() * 60 + now.getMinutes();
-    const sent = load('cd.sent', {});
-    let changed = false;
-    Object.keys(sent).forEach(id => { if (sent[id] !== k) { delete sent[id]; changed = true; } });
-    blocksOn(k).forEach(blk => {
-      const left = blk.start - nowMin, id = `${blk.e.plan || blk.e.id}@${blk.start}`; // re-planning keeps the same reminder
-      if (left < 0 || left > REMIND_MIN || sent[id]) return;
-      sent[id] = k;
-      changed = true;
-      push(blk.e.title, `${left ? L().inMin(left) : L().startsNow} · ${hm(blk.start)} – ${hm(blk.end)}`, id);
-    });
-    if (changed) save('cd.sent', sent);
-  }
+  $('ntfSticky').onclick = () => { alerts.sticky = !alerts.sticky; saveAlerts(); renderAlerts(); };
+  $('ntfLead').onchange = () => { alerts.lead = +$('ntfLead').value; saveAlerts(); };
+  $('ntfVol').oninput = () => { alerts.vol = +$('ntfVol').value; if (master) master.gain.value = alerts.vol / 100; };
+  $('ntfVol').onchange = () => { saveAlerts(); playSound('ping'); };
+  $('ntfInstall').onclick = async () => {
+    if (!installEvent) return;
+    installEvent.prompt();
+    await installEvent.userChoice.catch(() => {});
+    installEvent = null;
+    renderAlerts();
+  };
 
   // ---------- Day dial + timer ----------
   // The dial shows the day selected in the calendar as a gauge: a 270-degree arc from the first
@@ -1051,27 +1230,6 @@
     timer.run = null;
   }
 
-  // Soft three-note chime for starting and finishing work.
-  let audio = null;
-  function chime(notes) {
-    try {
-      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume();
-      notes.forEach((freq, i) => {
-        const t = audio.currentTime + i * 0.13;
-        const osc = audio.createOscillator(), gain = audio.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
-        osc.connect(gain).connect(audio.destination);
-        osc.start(t);
-        osc.stop(t + 0.75);
-      });
-    } catch { /* audio unavailable */ }
-  }
-
   function buildDial() {
     const svg = $('dialSvg');
     ringLayer = svgEl('g', {}, svg);
@@ -1086,11 +1244,8 @@
       if (!id) return; // nothing scheduled today
       const wasRunning = timer.run && timer.run.id === id;
       stopRun();
-      if (wasRunning) chime([783.99, 659.25, 523.25]);
-      else {
-        timer.run = { id, t0: Date.now() };
-        chime([523.25, 659.25, 783.99]);
-      }
+      if (!wasRunning) timer.run = { id, t0: Date.now() };
+      if (alerts.ev.timer.on) playSound(alerts.ev.timer.s, wasRunning);
       saveTimer();
       renderTimer();
     };
@@ -1885,7 +2040,7 @@
   // A viewer's browser leaves a mark (calendars/{owner}/visits/{viewer}) once a minute while the
   // shared calendar is on screen; a fresh mark means the person is looking at it right now.
   const ONLINE_MS = 150000;
-  let visits = new Map(), unsubVisits = null, sharedOpen = false; // email -> { id, seen }
+  let visits = new Map(), unsubVisits = null, sharedOpen = false, visitsReady = false; // email -> { id, seen }
   // The mark also keeps the viewer's sessions of the last week: [{ a: start, b: end }] in ms.
   // A mark that comes within ONLINE_MS of the previous one continues the same session.
   const WEEK_MS = 7 * 864e5;
@@ -2110,7 +2265,7 @@
     try {
       const stamp = load('cd.updated', 0) || Date.now();
       setLocal('cd.updated', stamp);
-      await fb.setDoc(docRef, { updated: stamp, json: JSON.stringify({ v: 1, events, lunch, timer, tasks, planCfg }) }, { merge: true }); // merge keeps the access list
+      await fb.setDoc(docRef, { updated: stamp, json: JSON.stringify({ v: 1, events, lunch, timer, tasks, planCfg, alerts }) }, { merge: true }); // merge keeps the access list
       if (load('cd.updated', 0) === stamp) setLocal('cd.dirty', false); // nothing changed meanwhile
       syncError = '';
       setSyncState('ok');
@@ -2134,7 +2289,8 @@
     if (!planCfg.byDate || typeof planCfg.byDate !== 'object') planCfg.byDate = {};
     planCfg.days = [1, 1, 1, 1, 1, 0, 0]; planCfg.from = 600; planCfg.to = 1080; // the fixed default week
     planResult = null;
-    saveEvents(); saveLunch(); saveTimer(); saveTasks(); savePlanCfg();
+    if (remote.alerts) setAlerts(remote.alerts);
+    saveEvents(); saveLunch(); saveTimer(); saveTasks(); savePlanCfg(); saveAlerts();
     setLocal('cd.updated', remote.updated || 0);
     setLocal('cd.dirty', false);
     syncQuiet = false;
@@ -2226,6 +2382,7 @@
         syncError = '';
         if (unsubVisits) { unsubVisits(); unsubVisits = null; }
         visits = new Map();
+        visitsReady = false;
         sharedOpen = false;
         members = [];
         noOwn = guestMember = false;
@@ -2240,8 +2397,15 @@
         if (!u) { setSyncState('off'); return; }
         docRef = fb.doc(fb.$db, 'calendars', u.uid);
         unsubVisits = fb.onSnapshot(fb.collection(fb.$db, 'calendars', u.uid, 'visits'), snap => {
-          visits = new Map();
-          snap.forEach(d => { const v = d.data(); if (v.email) visits.set(v.email, { id: d.id, seen: v.seen && v.seen.toMillis ? v.seen.toMillis() : 0, log: Array.isArray(v.log) ? v.log : [] }); });
+          const fresh = new Map();
+          snap.forEach(d => { const v = d.data(); if (v.email) fresh.set(v.email, { id: d.id, seen: v.seen && v.seen.toMillis ? v.seen.toMillis() : 0, log: Array.isArray(v.log) ? v.log : [] }); });
+          // Someone who was away is looking at the calendar now (not on the first load).
+          if (visitsReady) fresh.forEach((v, mail) => {
+            const was = visits.get(mail), t = Date.now();
+            if (t - v.seen < ONLINE_MS && !(was && t - was.seen < ONLINE_MS)) alertUser('visit', L().aVisit, mail, `v:${mail}`);
+          });
+          visits = fresh;
+          visitsReady = true;
           renderPeople();
         }, () => { /* visit marks are optional: the calendar works without them */ });
         setSyncState('busy');
@@ -2317,6 +2481,7 @@
   syncQuiet = false;
   startSync();
   setInterval(() => { renderTimer(); renderClock(); }, 1000);
+  setInterval(checkReminders, 10000); // alerts on time, not half a minute late
   setInterval(() => {
     checkReminders();
     renderHead();
