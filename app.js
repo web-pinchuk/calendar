@@ -50,7 +50,8 @@
       accMailPh: 'name@gmail.com', accAdd: 'Add', accCopy: 'Copy link', accCopied: 'Link copied', accRemove: 'Remove access',
       accNone: 'Nobody has access yet.', accBadMail: 'Enter a full email address', accHas: 'This email is already in the list',
       accOwn: 'This is your own email', accSaved: 'Access saved', accGone: 'Access removed',
-      accInvite: 'Send the invitation', invSubject: 'Access to my work calendar',
+      invSending: 'Sending the invitation…', invSent: m => 'Invitation sent to ' + m, invFailed: 'Access saved, but the invitation was not sent',
+      accInvite: 'Send the invitation',invSubject: 'Access to my work calendar',
       invBody: (link, mail, name) => `Hello!\n\nI have given you view access to my work calendar.\n\nOpen it here: ${link}\nSign in with this Google account: ${mail}\n\n${name}`,
       viewOnly: 'View only', gateTitle: 'Shared calendar', gateSignIn: 'Sign in with the Google account that was given access.',
       gateLoading: 'Opening the calendar…', gateDenied: m => 'No access for ' + m + '. Ask the owner to add this email.',
@@ -104,7 +105,8 @@
       accMailPh: 'name@gmail.com', accAdd: 'Додати', accCopy: 'Скопіювати посилання', accCopied: 'Посилання скопійовано', accRemove: 'Забрати доступ',
       accNone: 'Доступу ще ні в кого немає.', accBadMail: 'Введіть повну адресу пошти', accHas: 'Ця пошта вже є у списку',
       accOwn: 'Це ваша власна пошта', accSaved: 'Доступ збережено', accGone: 'Доступ забрано',
-      accInvite: 'Надіслати запрошення', invSubject: 'Доступ до мого робочого календаря',
+      invSending: 'Надсилаю запрошення…', invSent: m => 'Запрошення надіслано на ' + m, invFailed: 'Доступ збережено, але запрошення не надіслано',
+      accInvite: 'Надіслати запрошення',invSubject: 'Доступ до мого робочого календаря',
       invBody: (link, mail, name) => `Вітаю!\n\nЯ надав вам доступ на перегляд мого робочого календаря.\n\nВідкрити: ${link}\nУвійдіть через цей Google-акаунт: ${mail}\n\n${name}`,
       viewOnly: 'Лише перегляд', gateTitle: 'Спільний календар', gateSignIn: 'Увійдіть через Google-акаунт, якому надали доступ.',
       gateLoading: 'Відкриваю календар…', gateDenied: m => 'Немає доступу для ' + m + '. Попросіть власника додати цю пошту.',
@@ -1828,10 +1830,12 @@
     try {
       await fb.setDoc(docRef, { viewers: list, owner: user.displayName || user.email }, { merge: true });
       accMsg(done);
+      return true;
     } catch (err) {
       viewers = before;
       renderAccess();
       accMsg(`${L().accIsError}: ${err.code || err.message}`);
+      return false;
     }
   }
   function addViewer() {
@@ -1840,12 +1844,27 @@
     if (mail === (user.email || '').toLowerCase()) { accMsg(L().accOwn); return; }
     if (viewers.includes(mail)) { accMsg(L().accHas); return; }
     $('accMail').value = '';
-    invite(mail); // opened right in the click, so the browser does not block the new tab
-    setViewers([...viewers, mail], L().accSaved);
+    if (window.INVITE_URL) setViewers([...viewers, mail], L().accSaved).then(saved => { if (saved) invite(mail); }); // access first, then the letter
+    else {
+      invite(mail); // opened right in the click, so the browser does not block the new tab
+      setViewers([...viewers, mail], L().accSaved);
+    }
   }
   // The invitation is a ready letter in the owner's Gmail (the account they are signed in with):
   // recipient, subject and text are filled in, one press on Send is left.
-  function invite(mail) {
+  // With the sending script set up (INVITE_URL) the letter goes out by itself.
+  async function invite(mail) {
+    const url = window.INVITE_URL;
+    if (url) {
+      accMsg(L().invSending);
+      try {
+        const res = await fetch(url, { method: 'POST', body: JSON.stringify({ token: await user.getIdToken(), to: mail, lang }) });
+        const out = await res.json();
+        if (!out.ok) throw new Error(out.error);
+        accMsg(L().invSent(mail));
+      } catch (err) { accMsg(`${L().invFailed}${err && err.message ? ': ' + err.message : ''}`); }
+      return;
+    }
     const q = new URLSearchParams({ view: 'cm', fs: '1', authuser: user.email, to: mail, su: L().invSubject, body: L().invBody(shareLink(), mail, user.displayName || user.email) });
     window.open(`https://mail.google.com/mail/?${q}`, '_blank', 'noopener');
   }
