@@ -10,11 +10,11 @@
       longDate: d => `${T.en.months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`,
       dayDate: d => `${T.en.days[dow(d)]}, ${T.en.months[d.getMonth()].slice(0, 3)} ${d.getDate()}`,
       month: 'Month', week: 'Week', day: 'Day', today: 'Today',
-      projects: 'Projects', hours24: '24 hours', start: 'START', stop: 'STOP',
+      projects: "Today's tasks", hours24: '24 hours', start: 'START', stop: 'STOP',
       startTimer: 'Start timer', stopTimer: 'Stop timer',
       lunch: 'Lunch', everyDay: 'Every day', color: 'Project color',
       titlePh: 'Project name', addToDial: 'Task done', planRecorded: 'Recorded as done:', addTime: 'Add time', removeTime: 'Remove this time',
-      add: 'Add Event', save: 'Save', del: 'Delete', cancel: 'Cancel', dup: 'Duplicate', total: 'Total',
+      add: 'Add Event', save: 'Save', del: 'Delete', cancel: 'Cancel', dup: 'Duplicate', total: 'Hours',
       more: n => `${n} more`,
       badTime: 'Check the time', badTimeBody: 'The end must be later than the start.',
       notifNone: 'Notifications unavailable', notifNoneBody: 'This browser does not support system notifications.',
@@ -48,11 +48,11 @@
       longDate: d => `${d.getDate()} ${T.uk.monthsGen[d.getMonth()]} ${d.getFullYear()}`,
       dayDate: d => `${T.uk.days[dow(d)]}, ${d.getDate()} ${T.uk.monthsGen[d.getMonth()]}`,
       month: 'Місяць', week: 'Тиждень', day: 'День', today: 'Сьогодні',
-      projects: 'Проєкти', hours24: '24 години', start: 'СТАРТ', stop: 'СТОП',
+      projects: 'Задачі на день', hours24: '24 години', start: 'СТАРТ', stop: 'СТОП',
       startTimer: 'Запустити таймер', stopTimer: 'Зупинити таймер',
       lunch: 'Обід', everyDay: 'Щодня', color: 'Колір проєкту',
       titlePh: 'Назва проєкту', addToDial: 'Задачу виконано', planRecorded: 'Записано як виконане:', addTime: 'Додати час', removeTime: 'Прибрати цей час',
-      add: 'Додати подію', save: 'Зберегти', del: 'Видалити', cancel: 'Скасувати', dup: 'Дублювати', total: 'Всього',
+      add: 'Додати подію', save: 'Зберегти', del: 'Видалити', cancel: 'Скасувати', dup: 'Дублювати', total: 'Годин',
       more: n => `ще ${n}`,
       badTime: 'Перевірте час', badTimeBody: 'Кінець має бути пізніше за початок.',
       notifNone: 'Сповіщення недоступні', notifNoneBody: 'Цей браузер не підтримує системні сповіщення.',
@@ -374,11 +374,11 @@
         b.style.left = `${c / n * 100}%`;
         b.style.width = `${100 / n}%`;
         // Grips: visible handles on the top and bottom edges for stretching the block.
-        b.append(el('strong', '', e.title), el('span', '', `${hm(blk.start)} - ${hm(blk.end)}`), el('i', 'grip top'), el('i', 'grip bottom'));
+        b.append(el('strong', '', e.title), el('span', '', `${hm(blk.start)} - ${hm(blk.end)}`), el('i', 'grip g-top'), el('i', 'grip g-bottom'));
         b.title = `${e.title}\n${e.slots.map(s => `${hm(s.start)} – ${hm(s.end)}`).join('\n')}`;
         b.onpointerdown = ev => {
           const g = ev.target.classList;
-          startDrag(ev, blk, b, g.contains('grip') ? (g.contains('top') ? 'top' : 'bottom') : 'move');
+          startDrag(ev, blk, b, g.contains('grip') ? (g.contains('g-top') ? 'top' : 'bottom') : 'move');
         };
         b.onclick = ev => {
           ev.stopPropagation();
@@ -386,6 +386,17 @@
           openEditor({ ...e, slots: e.slots.map(s => ({ ...s })) }, b, null, { x: ev.clientX, y: ev.clientY });
         };
         col.append(b);
+      });
+      // Short pauses between blocks are drawn as rest: the same hatching, no text or time.
+      let lastEnd = null;
+      blocksOn(k).forEach(blk => {
+        if (lastEnd !== null && blk.start > lastEnd && blk.start - lastEnd <= 30) {
+          const rest = el('div', 'rest neutral');
+          rest.style.top = `${yOf(lastEnd)}px`;
+          rest.style.height = `${(blk.start - lastEnd) / 60 * H}px`;
+          col.append(rest);
+        }
+        lastEnd = lastEnd === null ? blk.end : Math.max(lastEnd, blk.end);
       });
       col.onclick = ev => {
         if (ev.target !== col || justActed()) return;
@@ -426,8 +437,10 @@
       if (start !== it.s.start) moved.add(it.e);
       it.s.start = start; it.s.end = start + len;
     };
+    // A block the anchor landed inside goes after it when most of that block lies below the anchor's start.
+    const after = it => it.s.start >= anchor.start || (it.s.end > anchor.start && anchor.start - it.s.start < it.s.end - anchor.start);
     let edge = anchor.end;
-    items.filter(it => it.s.start >= anchor.start).sort((a, b) => a.s.start - b.s.start).forEach(it => {
+    items.filter(after).sort((a, b) => a.s.start - b.s.start).forEach(it => {
       const len = it.s.end - it.s.start;
       let start = Math.max(it.s.start, edge);
       if (start !== it.s.start) walls.forEach(w => { if (start < w.end && start + len > w.start) start = w.end; });
@@ -435,7 +448,7 @@
       edge = Math.max(edge, it.s.end);
     });
     edge = anchor.start;
-    items.filter(it => it.s.start < anchor.start).sort((a, b) => b.s.end - a.s.end).forEach(it => {
+    items.filter(it => !after(it)).sort((a, b) => b.s.end - a.s.end).forEach(it => {
       const len = it.s.end - it.s.start;
       let end = Math.min(it.s.end, edge);
       if (end !== it.s.end) walls.forEach(w => { if (end - len < w.end && end > w.start) end = w.start; });
@@ -955,11 +968,9 @@
     $('dialBtn').setAttribute('aria-label', `${on ? L().stopTimer : L().startTimer}: ${e.title}`);
   }
 
-  // ---------- Kyiv clock ----------
-  let kyivFmt;
-  try { kyivFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }); }
-  catch { kyivFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }); }
-  const renderClock = () => { $('clock').textContent = kyivFmt.format(new Date()); };
+  // ---------- Clock: the local time of wherever the person is ----------
+  const clockFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const renderClock = () => { $('clock').textContent = clockFmt.format(new Date()); };
 
   // ---------- Planner ----------
   // The user lists projects; the planner turns them into calendar blocks.
