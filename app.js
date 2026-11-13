@@ -29,7 +29,8 @@
       planLunch: 'Lunch break', planFixed: 'Scheduled', planPast: 'This time has already passed',
       planWork: 'Working time', planFrom: 'From', planTo: 'To', planBlock: 'Focus block', planGap: 'Break', noBreak: 'No break', h: 'h', min: ' min',
       planProjectsTitle: 'Projects', planName: 'Project', planHours: 'Hours', planDeadline: 'Deadline', planDiff: 'Difficulty', diff: ['Easy', 'Medium', 'Hard'],
-      planAddTask: 'Add project', removeTask: 'Remove project', planClear: 'Clear plan', planRun: 'Plan',
+      planAddTask: 'Add project', removeTask: 'Remove project', planClear: 'Clear plan', planRun: 'Save', planSaved: 'Plan saved',
+      planSchedule: 'Schedule', planUsual: 'Usual hours', planBreaks: 'Focus and breaks', planReset: 'Back to the usual hours',
       planNoTasks: 'No projects yet. Add the first one.', planNone: 'Add a project with a name and dates first.',
       planNeed: 'To do', planFree: 'free before the last deadline', planDone: 'done', planLeft: 'left',
       planFits: 'Fits', planEnds: 'finishes', planAllDone: 'Nothing left to plan',
@@ -68,7 +69,8 @@
       planLunch: 'Обідня перерва', planFixed: 'Заплановано', planPast: 'Цей час уже минув',
       planWork: 'Робочий час', planFrom: 'З', planTo: 'До', planBlock: 'Блок роботи', planGap: 'Перерва', noBreak: 'Без перерви', h: ' год', min: ' хв',
       planProjectsTitle: 'Проєкти', planName: 'Проєкт', planHours: 'Години', planDeadline: 'Дедлайн', planDiff: 'Складність', diff: ['Легко', 'Середньо', 'Важко'],
-      planAddTask: 'Додати проєкт', removeTask: 'Прибрати проєкт', planClear: 'Очистити план', planRun: 'Розпланувати',
+      planAddTask: 'Додати проєкт', removeTask: 'Прибрати проєкт', planClear: 'Очистити план', planRun: 'Зберегти', planSaved: 'План збережено',
+      planSchedule: 'Графік', planUsual: 'Звичайний графік', planBreaks: 'Блоки й перерви', planReset: 'Повернути звичайний графік',
       planNoTasks: 'Проєктів ще немає. Додайте перший.', planNone: 'Спершу додайте проєкт з назвою й датами.',
       planNeed: 'Залишилось', planFree: 'вільно до останнього дедлайну', planDone: 'зроблено', planLeft: 'залишилось',
       planFits: 'Вміщається', planEnds: 'завершення', planAllDone: 'Більше нічого планувати',
@@ -179,7 +181,7 @@
   const lunchOn = k => ({ id: LUNCH, daily: true, date: k, ...lunch, title: lunch.title || L().lunch });
   const firstStart = e => Math.min(...e.slots.map(s => s.start));
   // The lunch break is a per-account setting (Planner -> Working time), shown on working days only.
-  const projectsOn = (k, withLunch = true) => events.filter(e => e.date === k).concat(lunch.on && withLunch && planCfg.days[dow(fromKey(k))] ? [lunchOn(k)] : [])
+  const projectsOn = (k, withLunch = true) => events.filter(e => e.date === k).concat(lunch.on && withLunch && dayPlan(k).on ? [lunchOn(k)] : [])
     .sort((a, b) => firstStart(a) - firstStart(b));
   // One calendar block per time slot of every project of the day.
   const blocksOn = k => projectsOn(k).flatMap(e => e.slots.map((s, i) => ({ e, i, start: s.start, end: s.end })))
@@ -248,7 +250,9 @@
     miniMonth = new Date(sel.getFullYear(), sel.getMonth(), 1);
     if (newView) { view = newView; save('cd.view', view); }
     closeEditor();
+    ensureDialSel(key(sel));
     render();
+    renderTimer();
   }
 
   // ---------- Main ----------
@@ -310,7 +314,9 @@
   // and stretches only as far as needed to show projects that lie outside it.
   let VS = DAY_START, VE = DAY_END;
   function viewRange(days) {
-    let s = planCfg.from, e = planCfg.to;
+    const open = days.map(d => dayPlan(key(d))).filter(dp => dp.on); // hours set for the days on screen
+    let s = open.length ? Math.min(...open.map(dp => dp.from)) : planCfg.from;
+    let e = open.length ? Math.max(...open.map(dp => dp.to)) : planCfg.to;
     days.forEach(d => blocksOn(key(d)).forEach(b => {
       s = Math.min(s, Math.floor(b.start / 60) * 60);
       e = Math.max(e, Math.ceil(b.end / 60) * 60);
@@ -322,8 +328,8 @@
   const yOf = min => (min - VS) / 60 * H;
   const blockHeight = (s, e) => Math.max((e - Math.max(s, VS)) / 60 * H, 16);
 
-  // 12-hour clock without AM/PM: 09:00 ... 12:00, 01:00 ...
-  const fmt12 = m => `${pad(Math.floor(m / 60) % 12 || 12)}:${pad(m % 60)}`;
+  // Scale labels use the 24-hour clock: 13:00 follows 12:00.
+  const fmt12 = m => hm(m);
   // Fill a block or swatch with a project colour; the neutral one (lunch, rest) is hatched.
   const paint = (node, c) => { node.style.background = c.soft; node.classList.toggle('neutral', c.id === 'neutral'); };
 
@@ -366,7 +372,8 @@
         b.type = 'button';
         const h = blockHeight(blk.start, blk.end);
         b.classList.toggle('short', h < 48);
-        b.classList.toggle('active', k === todayK && e.id === timer.sel);
+        b.dataset.key = trackKey(e);
+        b.classList.toggle('active', k === key(sel) && trackKey(e) === dialSel(k));
         b.classList.toggle('done', !!e.onDial);
         paint(b, colorOf(e));
         b.style.top = `${yOf(Math.max(blk.start, VS))}px`;
@@ -430,7 +437,7 @@
   function settleDay(k, anchor) {
     const items = [];
     events.forEach(e => { if (e.date === k) e.slots.forEach(s => { if (s !== anchor) items.push({ e, s }); }); });
-    const walls = lunch.on && planCfg.days[dow(fromKey(k))] ? lunch.slots : [];
+    const walls = lunch.on && dayPlan(k).on ? lunch.slots : [];
     const moved = new Set();
     const place = (it, start) => {
       const len = it.s.end - it.s.start;
@@ -646,16 +653,7 @@
   function openEditor(data, anchor, col, pt) {
     closeEditor();
     draft = { color: PALETTE[events.length % PALETTE.length].id, title: '', onDial: false, ...data };
-    const isToday = draft.date === key(new Date());
-    if (draft.id && isToday && draft.id !== timer.sel) { // today's clicked project becomes the one on the dial
-      timer.sel = draft.id;
-      saveTimer();
-      renderTimer();
-      document.querySelectorAll('.ev.active').forEach(n => n.classList.remove('active'));
-      document.querySelectorAll('.col.is-today .ev').forEach(n => {
-        if (n.querySelector('strong').textContent === draft.title) n.classList.add('active');
-      });
-    }
+    if (draft.id && draft.id !== LUNCH) pickOnDial(draft); // the clicked project becomes the one on the dial
     if (col) {
       ghost = el('div', 'ghost');
       ghost.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>';
@@ -718,7 +716,7 @@
       e.slots.sort((a, b) => a.start - b.start);
       planResult = null;
       saveEvents();
-      if (e.date === key(new Date())) { timer.sel = e.id; saveTimer(); }
+      if (e.date === key(new Date())) { timer.sel = trackKey(e); saveTimer(); } else otherSel = { day: e.date, id: trackKey(e) };
       select(fromKey(e.date));
     }
     renderTimer();
@@ -729,8 +727,10 @@
       const id = draft.id;
       events = events.filter(x => x.id !== id);
       saveEvents();
-      if (timer.run && timer.run.id === id) timer.run = null;
-      timer.sessions = timer.sessions.filter(s => s.id !== id);
+      if (!draft.plan) { // a planner project keeps its tracked time: its other blocks may remain
+        if (timer.run && timer.run.id === id) timer.run = null;
+        timer.sessions = timer.sessions.filter(s => s.id !== id);
+      }
       saveTimer();
     }
     closeEditor();
@@ -812,18 +812,27 @@
     if (changed) save('cd.sent', sent);
   }
 
-  // ---------- Project timer (dial, today only) ----------
-  // Every project of today owns one ring. Lines sit at the real clock position of the time they
-  // cover: Start/Stop sessions, plus the planned slots when "Add to circle" is ticked. Several
-  // slots or sessions of one project share its ring, with gaps between them.
-  let timer = { day: key(new Date()), sessions: [], run: null, sel: null, mode: '12', half: null, ...load('cd.timer3', {}) };
-  timer.mode = '12'; timer.half = null; // the dial is a 12-hour face showing the current half of the day
+  // ---------- Day dial + timer ----------
+  // The dial shows the day selected in the calendar as a gauge: a 270-degree arc from the first
+  // working hour of that day (bottom-left) to the last one (bottom-right). Every project of the
+  // day owns one ring; lines sit where the time is: blocks ticked "Task done", plus (today only)
+  // the Start/Stop sessions. Tracked time belongs to the project (`plan` id for planner projects),
+  // so it survives rebuilding the plan.
+  let timer = { day: key(new Date()), sessions: [], run: null, sel: null, ...load('cd.timer3', {}) };
+  delete timer.mode; delete timer.half;
   function saveTimer() { save('cd.timer3', timer); }
-  const todayProjects = () => projectsOn(key(new Date())).filter(e => e.color !== 'neutral'); // lunch and rest are not projects
+  const trackKey = e => e.plan || e.id;
+  { // sessions saved by older versions were keyed by the block id
+    const toKey = id => { const e = events.find(x => x.id === id); return e ? trackKey(e) : id; };
+    timer.sessions.forEach(s => { s.id = toKey(s.id); });
+    if (timer.run) timer.run.id = toKey(timer.run.id);
+    if (timer.sel) timer.sel = toKey(timer.sel);
+  }
+  let otherSel = { day: '', id: null }; // project shown in the centre when the selected day is not today
+  const dialSel = k => (k === key(new Date()) ? timer.sel : otherSel.day === k ? otherSel.id : null);
+
   const R_OUT = 108, R_IN = 72, R_STEP = 12;
-  // The dial is a gauge: a 270-degree arc that starts bottom-left with the first working hour
-  // and ends bottom-right with the last one (angles in screen coordinates, clockwise).
-  const ARC0 = Math.PI * 0.75, ARC = Math.PI * 1.5;
+  const ARC0 = Math.PI * 0.75, ARC = Math.PI * 1.5; // screen angles, clockwise
   const arcPoint = (r, a) => `${(150 + r * Math.cos(a)).toFixed(1)} ${(150 + r * Math.sin(a)).toFixed(1)}`;
   const NS = 'http://www.w3.org/2000/svg';
   const svgEl = (tag, attrs, parent) => {
@@ -832,35 +841,64 @@
     parent.append(n);
     return n;
   };
-  let ringLayer = null, arcLayer = null, ringCount = -1, arcMarkup = '', ticks = [];
+  let ringLayer = null, tickLayer = null, arcLayer = null, ringCount = -1, tickMarkup = '', arcMarkup = '';
 
-  // Segments of a project on today's dial, in minutes from midnight.
-  function segmentsOf(e) {
+  // Projects of a day for the dial: one entry per project (lunch and rest are not projects).
+  function dialProjects(k) {
+    const map = new Map();
+    projectsOn(k).forEach(e => {
+      if (e.color === 'neutral') return;
+      const id = trackKey(e);
+      const p = map.get(id) || { id, title: e.title, color: e.color, slots: [], planned: [] };
+      p.slots.push(...e.slots);
+      if (e.onDial) p.planned.push(...e.slots);
+      map.set(id, p);
+    });
+    return [...map.values()];
+  }
+
+  // Segments of a project in minutes from midnight; live tracking exists for today only.
+  function segmentsOf(p, isToday) {
+    const segs = p.planned.map(s => ({ a: s.start, b: s.end, planned: true }));
+    if (!isToday) return segs;
     const mid = fromKey(timer.day).getTime(), toMin = ts => (ts - mid) / 60000;
-    const segs = e.onDial ? e.slots.map(s => ({ a: s.start, b: s.end, planned: true })) : [];
-    timer.sessions.forEach(s => { if (s.id === e.id) segs.push({ a: toMin(s.a), b: toMin(s.b) }); });
-    if (timer.run && timer.run.id === e.id) segs.push({ a: toMin(timer.run.t0), b: toMin(Date.now()), live: true });
+    timer.sessions.forEach(s => { if (s.id === p.id) segs.push({ a: toMin(s.a), b: toMin(s.b) }); });
+    if (timer.run && timer.run.id === p.id) segs.push({ a: toMin(timer.run.t0), b: toMin(Date.now()), live: true });
     return segs;
   }
-  const dialTotal = e => segmentsOf(e).reduce((sum, s) => sum + (s.b - s.a), 0) * 60000;
+  const dialTotal = (p, isToday) => segmentsOf(p, isToday).reduce((sum, s) => sum + (s.b - s.a), 0) * 60000;
 
   function rollover() {
     const k = key(new Date());
     if (timer.day === k) return;
-    timer = { ...timer, day: k, sessions: [], run: null, sel: null, half: null }; // a new day starts with a clean circle
+    timer = { ...timer, day: k, sessions: [], run: null, sel: null }; // a new day starts with a clean dial
     const quiet = syncQuiet;
     syncQuiet = true; // the daily reset is not an edit to send to the cloud
     saveTimer();
     syncQuiet = quiet;
   }
 
-  function ensureSel() {
-    const list = todayProjects();
-    if (list.some(e => e.id === timer.sel)) return;
-    const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
-    const own = list.filter(e => e.id !== LUNCH);
-    const pick = own.find(e => e.slots.some(s => s.start <= nowMin && nowMin < s.end)) || own[0] || list[0];
-    timer.sel = pick ? pick.id : null;
+  // Which project the centre of the dial shows for day k (kept if still valid, otherwise picked).
+  function ensureDialSel(k) {
+    const list = dialProjects(k), cur = dialSel(k);
+    if (list.some(p => p.id === cur)) return cur;
+    let pick = list[0];
+    if (k === key(new Date())) {
+      const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+      pick = list.find(p => p.slots.some(s => s.start <= nowMin && nowMin < s.end)) || list[0];
+      timer.sel = pick ? pick.id : null;
+    } else otherSel = { day: k, id: pick ? pick.id : null };
+    return pick ? pick.id : null;
+  }
+
+  // A clicked block becomes the project in the centre of the dial for its day.
+  function pickOnDial(e) {
+    if (e.color === 'neutral') return;
+    const id = trackKey(e);
+    if (e.date === key(new Date())) { timer.sel = id; saveTimer(); } else otherSel = { day: e.date, id };
+    renderTimer();
+    document.querySelectorAll('.ev.active').forEach(n => n.classList.remove('active'));
+    if (e.date === key(sel)) document.querySelectorAll(`.col[data-date="${e.date}"] .ev`).forEach(n => n.classList.toggle('active', n.dataset.key === id));
   }
 
   function stopRun() {
@@ -890,25 +928,22 @@
     } catch { /* audio unavailable */ }
   }
 
-
   function buildDial() {
     const svg = $('dialSvg');
     ringLayer = svgEl('g', {}, svg);
-    // Five hour labels along the arc: start, quarter, middle, three quarters, end of the working day.
-    ticks = [0, 1, 2, 3, 4].map(i => {
-      const a = ARC0 + ARC * i / 4, c = Math.cos(a), r = R_OUT + 13;
-      return svgEl('text', { class: 'tick', x: (150 + r * c).toFixed(1), y: (150 + r * Math.sin(a) + 4).toFixed(1), 'text-anchor': c < -0.3 ? 'end' : c > 0.3 ? 'start' : 'middle' }, svg);
-    });
+    tickLayer = svgEl('g', {}, svg);
     arcLayer = svgEl('g', {}, svg);
 
     $('dialBtn').onclick = () => {
-      ensureSel();
-      if (!timer.sel) return; // nothing scheduled today
-      const wasRunning = timer.run && timer.run.id === timer.sel;
+      rollover();
+      if (key(sel) !== timer.day) return; // the timer runs for today only
+      const id = ensureDialSel(timer.day);
+      if (!id) return; // nothing scheduled today
+      const wasRunning = timer.run && timer.run.id === id;
       stopRun();
       if (wasRunning) chime([783.99, 659.25, 523.25]);
       else {
-        timer.run = { id: timer.sel, t0: Date.now() };
+        timer.run = { id, t0: Date.now() };
         chime([523.25, 659.25, 783.99]);
       }
       saveTimer();
@@ -920,53 +955,69 @@
 
   function renderTimer() {
     rollover();
-    ensureSel();
-    const list = todayProjects();
-    if (timer.run && !list.some(e => e.id === timer.run.id)) timer.run = null;
+    const todayK = timer.day, k = key(sel), isToday = k === todayK;
+    const list = dialProjects(k);
+    const selId = ensureDialSel(k);
+    if (timer.run && !dialProjects(todayK).some(p => p.id === timer.run.id)) timer.run = null; // its project is gone
 
-    // The circle is the working day: it starts at the top with the first working hour and closes
-    // with the last one (stretched when today's blocks lie outside the schedule).
-    let from = planCfg.from, to = planCfg.to;
-    blocksOn(key(new Date())).forEach(b => { from = Math.min(from, Math.floor(b.start / 60) * 60); to = Math.max(to, Math.ceil(b.end / 60) * 60); });
+    // Range of the gauge: the working hours set for this day, stretched to hold blocks outside them.
+    const dp = dayPlan(k);
+    let from = dp.on ? dp.from : planCfg.from, to = dp.on ? dp.to : planCfg.to;
+    blocksOn(k).forEach(b => { from = Math.min(from, Math.floor(b.start / 60) * 60); to = Math.max(to, Math.ceil(b.end / 60) * 60); });
     const span = Math.max(to - from, 60);
-    // Counter of all hours spent today (everything drawn on the circle).
-    $('dialHalf').textContent = `${L().total} ${fmt(list.reduce((sum, e) => sum + dialTotal(e), 0))}`;
-    ticks.forEach((tick, i) => { tick.textContent = fmt12(from + span * i / 4); });
+    const angle = m => ARC0 + (m - from) / span * ARC;
+
+    $('dialTitle').textContent = isToday ? L().projects : shortDate(k);
+    $('dialHalf').textContent = `${L().total} ${fmt(list.reduce((sum, p) => sum + dialTotal(p, isToday), 0))}`;
+
+    // Hour labels along the arc: whole hours only, thinned out for long days.
+    const every = span <= 600 ? 60 : span <= 960 ? 120 : 180;
+    let marks = '';
+    for (let m = from; m <= from + span; m += every) {
+      if (m !== from + span && from + span - m < every * 0.6) continue; // too close to the end label
+      const a = angle(m), c = Math.cos(a), r = R_OUT + 12;
+      marks += `<text class="tick" x="${(150 + r * c).toFixed(1)}" y="${(150 + r * Math.sin(a) + 4).toFixed(1)}" text-anchor="${c < -0.3 ? 'end' : c > 0.3 ? 'start' : 'middle'}">${Math.floor(m / 60)}</text>`;
+    }
+    if ((span % every) !== 0) { // the end of the day always gets its label
+      const a = angle(from + span), c = Math.cos(a), r = R_OUT + 12;
+      marks += `<text class="tick" x="${(150 + r * c).toFixed(1)}" y="${(150 + r * Math.sin(a) + 4).toFixed(1)}" text-anchor="start">${Math.floor((from + span) / 60)}</text>`;
+    }
+    if (marks !== tickMarkup) { tickMarkup = marks; tickLayer.innerHTML = marks; }
 
     const step = list.length > 1 ? Math.min(R_STEP, (R_OUT - R_IN) / (list.length - 1)) : 0;
     const radius = i => R_OUT - i * step;
-    if (ringCount !== list.length) { // one ring per project of the day
-      ringCount = list.length;
+    const rings = Math.max(list.length, 1); // an empty day still shows the gauge
+    if (ringCount !== rings) {
+      ringCount = rings;
       ringLayer.replaceChildren();
-      list.forEach((_, i) => svgEl('path', { class: 'ring', d: `M${arcPoint(radius(i), ARC0)} A${radius(i)} ${radius(i)} 0 1 1 ${arcPoint(radius(i), ARC0 + ARC)}` }, ringLayer));
+      for (let i = 0; i < rings; i++) svgEl('path', { class: 'ring', d: `M${arcPoint(radius(i), ARC0)} A${radius(i)} ${radius(i)} 0 1 1 ${arcPoint(radius(i), ARC0 + ARC)}` }, ringLayer);
     }
 
-    const angle = m => ARC0 + (m - from) / span * ARC;
-    const pt = (r, a) => `${(150 + r * Math.cos(a)).toFixed(1)} ${(150 + r * Math.sin(a)).toFixed(1)}`;
     let markup = '';
     const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
-    list.forEach((e, i) => {
-      const r = radius(i), c = colorOf(e).arc;
-      segmentsOf(e).forEach(s => {
-        const a = clamp(s.a, from, from + span), b = clamp(s.b, from, from + span); // only the part inside the working day
+    list.forEach((p, i) => {
+      const r = radius(i), c = (COLOR[p.color] || PALETTE[0]).arc;
+      segmentsOf(p, isToday).forEach(s => {
+        const a = clamp(s.a, from, from + span), b = clamp(s.b, from, from + span); // only the part inside the day
         if (b < a || (b === a && !s.live)) return;
         const a1 = angle(a), a2 = angle(b);
-        markup += `<path class="arc" d="M${pt(r, a1)} A${r} ${r} 0 ${a2 - a1 > Math.PI ? 1 : 0} 1 ${pt(r, a2)}" stroke="${c}" style="filter:drop-shadow(0 0 4px ${c})"/>`;
+        markup += `<path class="arc" d="M${arcPoint(r, a1)} A${r} ${r} 0 ${a2 - a1 > Math.PI ? 1 : 0} 1 ${arcPoint(r, a2)}" stroke="${c}" style="filter:drop-shadow(0 0 4px ${c})"/>`;
         // White dot: only on the selected project, and only until that piece of work is finished.
-        if (e.id === timer.sel && (s.live || (s.planned && s.b > nowMin))) {
-          markup += `<circle class="${s.live ? 'live' : ''}" cx="${pt(r, a2).replace(' ', '" cy="')}" r="3.5" fill="#fff"/>`;
+        if (p.id === selId && (s.live || (s.planned && (k > todayK || (isToday && s.b > nowMin))))) {
+          markup += `<circle class="${s.live ? 'live' : ''}" cx="${arcPoint(r, a2).replace(' ', '" cy="')}" r="3.5" fill="#fff"/>`;
         }
       });
     });
     if (markup !== arcMarkup) { arcMarkup = markup; arcLayer.innerHTML = markup; }
 
-    const e = list.find(x => x.id === timer.sel) || { id: null, title: '—', slots: [] };
-    const t = dialTotal(e), on = !!timer.run && timer.run.id === e.id;
-    $('dialCat').textContent = e.title;
+    const p = list.find(x => x.id === selId) || { id: null, title: '—', slots: [], planned: [] };
+    const t = dialTotal(p, isToday), on = isToday && !!timer.run && timer.run.id === p.id;
+    $('dialCat').textContent = p.title;
     $('dialTime').innerHTML = `${fmt(t)}<small>:${pad(Math.floor(t / 1000) % 60)}</small>`;
-    $('dialState').textContent = on ? L().stop : L().start;
+    $('dialState').textContent = isToday ? (on ? L().stop : L().start) : L().daysShort[dow(sel)];
     $('dialBtn').classList.toggle('run', on);
-    $('dialBtn').setAttribute('aria-label', `${on ? L().stopTimer : L().startTimer}: ${e.title}`);
+    $('dialBtn').classList.toggle('idle', !isToday);
+    $('dialBtn').setAttribute('aria-label', isToday ? `${on ? L().stopTimer : L().startTimer}: ${p.title}` : p.title);
   }
 
   // ---------- Clock: the local time of wherever the person is ----------
@@ -983,6 +1034,16 @@
   // started stay in the calendar and count as done hours; everything later is re-planned.
   let tasks = load('cd.tasks', []) || [];
   let planCfg = { days: [1, 1, 1, 1, 1, 0, 0], from: 600, to: 1080, block: 120, gap: 15, ...load('cd.planCfg', {}) };
+  planCfg.from = Math.floor(planCfg.from / 60) * 60; // working hours are whole hours
+  planCfg.to = Math.ceil(planCfg.to / 60) * 60;
+  if (!planCfg.byDate || typeof planCfg.byDate !== 'object') planCfg.byDate = {};
+  { // exceptions for days long gone are dropped
+    const old = key(addDays(new Date(), -21));
+    Object.keys(planCfg.byDate).forEach(k => { if (k < old) delete planCfg.byDate[k]; });
+  }
+  // Working hours of a date: its own hours if they were set for that day, otherwise the usual ones.
+  function usualDay(k) { return { on: !!planCfg.days[dow(fromKey(k))], from: planCfg.from, to: planCfg.to }; }
+  function dayPlan(k) { return planCfg.byDate[k] || usualDay(k); }
   let planResult = null; // outcome of the last run: { byTask: { id: {...} }, blocks, days }
   const saveTasks = () => save('cd.tasks', tasks);
   const savePlanCfg = () => save('cd.planCfg', planCfg);
@@ -996,11 +1057,11 @@
   const RATE = [0, 60, 120, 180]; // easy, medium, hard
   const workdays = (fromK, toK) => {
     let n = 0;
-    for (let d = fromKey(fromK), i = 0; key(d) <= toK && i < 800; d = addDays(d, 1), i++) n += planCfg.days[dow(d)] ? 1 : 0;
+    for (let d = fromKey(fromK), i = 0; key(d) <= toK && i < 800; d = addDays(d, 1), i++) n += dayPlan(key(d)).on ? 1 : 0;
     return n;
   };
   const autoTotal = t => workdays(t.start, t.deadline) * RATE[t.diff];
-  const todayCounts = () => nowMinutes() < planCfg.to; // today's working time is not over yet
+  const todayCounts = () => { const dp = dayPlan(key(new Date())); return dp.on && nowMinutes() < dp.to; }; // today's working time is not over yet
   function autoLeft(t) { // what is still ahead, from today on
     const todayK = key(new Date()), now = nowMinutes();
     let from = t.start > todayK ? t.start : todayK, doneToday = 0;
@@ -1032,9 +1093,10 @@
 
   // Free working intervals of a day: working hours minus lunch and fixed projects (with a break around those).
   function freeIntervals(k, fixed) {
-    if (!planCfg.days[dow(fromKey(k))]) return [];
-    let from = Math.max(planCfg.from, DAY_START);
-    const to = Math.min(planCfg.to, DAY_END);
+    const dp = dayPlan(k);
+    if (!dp.on) return [];
+    let from = Math.max(dp.from, DAY_START);
+    const to = Math.min(dp.to, DAY_END);
     if (k === key(new Date())) from = Math.max(from, Math.ceil((nowMinutes() + 1) / 15) * 15);
     let free = from < to ? [[from, to]] : [];
     const cut = (a, b) => {
@@ -1073,7 +1135,7 @@
     for (let d = today, n = 0; d <= horizon && n < 180 && list.some(x => x.rem > 0); d = addDays(d, 1), n++) {
       const k = key(d), free = freeIntervals(k, busy);
       // Every working day adds the project's daily portion; what a busy day could not take is caught up later.
-      if (planCfg.days[dow(d)] && (k !== todayK || todayCounts())) list.forEach(c => { if ((c.t.start || '') <= k) c.quota += RATE[c.t.diff]; });
+      if (dayPlan(k).on && (k !== todayK || todayCounts())) list.forEach(c => { if ((c.t.start || '') <= k) c.quota += RATE[c.t.diff]; });
       let capacity = free.reduce((sum, [x, y]) => sum + y - x, 0);
       if (!capacity) continue;
 
@@ -1143,6 +1205,10 @@
     renderTimer();
     checkReminders();
     updatePlanInfo();
+    toast(L().planSaved, L().planMade(planResult.blocks, planResult.days));
+    // The sheet closes when everything fits; it stays open to show what does not.
+    if (!Object.values(r.info).some(x => !x.fixed && x.rem + x.late > 0)) $('planDlg').close();
+    else { planTab = 'projects'; renderPlanner(); }
   }
 
   function clearPlan() {
@@ -1159,7 +1225,6 @@
   // Notes under each project, the summary line and the sidebar card.
   function updatePlanInfo() {
     tasks.forEach(normalizeTask);
-    const { kept } = splitPlanned();
     const list = validTasks();
     const todayK = key(new Date()), now = nowMinutes();
     const left = t => (isFixed(t) ? (t.date > todayK || (t.date === todayK && t.from >= now) ? t.to - t.from : 0) : autoLeft(t));
@@ -1178,19 +1243,6 @@
       else { note.textContent = `${L().planFits} · ${L().planEnds} ${shortDate(r.last)}`; note.classList.add('ok'); }
     });
     const need = list.reduce((sum, t) => sum + left(t), 0);
-    const lastDeadline = list.reduce((m, t) => (endDate(t) > m ? endDate(t) : m), '');
-    let free = 0;
-    if (lastDeadline) {
-      for (let d = fromKey(todayK), n = 0; key(d) <= lastDeadline && n < 400; d = addDays(d, 1), n++) {
-        free += freeIntervals(key(d), kept).reduce((sum, [x, y]) => sum + y - x, 0);
-      }
-    }
-    const sum = $('planSum');
-    sum.replaceChildren();
-    if (list.length) {
-      sum.append(`${L().planNeed} `, el('b', '', fmtH(need)), ` · ${L().planFree} `, el('b', '', fmtH(free)));
-      if (planResult) sum.append(el('br'), L().planMade(planResult.blocks, planResult.days));
-    }
     $('planSub').textContent = list.length ? `${L().planCount(list.length)} · ${fmtH(need)}` : L().planEmpty;
   }
 
@@ -1308,27 +1360,78 @@
     return t;
   }
 
+  // Planner sheet: two tabs. "Projects" lists what to plan; "Schedule" holds the working hours:
+  // the week picked in the sheet day by day, the usual hours behind it, and focus/break settings.
+  let planTab = 'projects', planWeek = weekStart(new Date());
+  const hourly = (a, b) => Array.from({ length: (b - a) / 60 + 1 }, (_, i) => a + i * 60);
+  const clock = v => (v === 1440 ? '24:00' : hm(v));
+  const fillSelect = (s, values, label, value) => {
+    s.innerHTML = values.map(v => `<option value="${v}">${label(v)}</option>`).join('');
+    s.value = value;
+  };
+  // Everything that depends on the working hours: calendar scale, dial, lunch, plan notes.
+  const scheduleChanged = () => { planResult = null; savePlanCfg(); render(); renderTimer(); renderPlanner(); };
+
+  // Hours of one specific date. Setting them back to the usual hours removes the exception.
+  function setDay(k, patch) {
+    const next = { ...dayPlan(k), ...patch };
+    if (next.to <= next.from) { if ('from' in patch) next.to = Math.min(next.from + 60, DAY_END); else next.from = Math.max(next.to - 60, DAY_START); }
+    const usual = usualDay(k);
+    if (next.on === usual.on && next.from === usual.from && next.to === usual.to) delete planCfg.byDate[k];
+    else planCfg.byDate[k] = { on: next.on, from: next.from, to: next.to };
+    scheduleChanged();
+  }
+
+  function renderPlanWeek() {
+    const first = L().dayDate(planWeek).split(', ')[1], last = L().dayDate(addDays(planWeek, 6)).split(', ')[1];
+    $('planWeekLabel').textContent = `${first} – ${last}`;
+    const todayK = key(new Date());
+    $('planWeek').replaceChildren(...Array.from({ length: 7 }, (_, i) => {
+      const d = addDays(planWeek, i), k = key(d), dp = dayPlan(k), custom = !!planCfg.byDate[k];
+      const row = el('div', `day-row${custom ? ' custom' : ''}${k === todayK ? ' today' : ''}`);
+      const chip = el('button', `day-chip${dp.on ? ' on' : ''}`);
+      chip.type = 'button';
+      chip.setAttribute('aria-pressed', dp.on);
+      chip.append(el('span', '', L().daysShort[i]), el('b', '', d.getDate()));
+      chip.onclick = () => setDay(k, { on: !dp.on });
+      const from = el('select'), to = el('select');
+      from.setAttribute('aria-label', L().planFrom);
+      to.setAttribute('aria-label', L().planTo);
+      fillSelect(from, hourly(DAY_START, DAY_END - 60), hm, dp.from);
+      fillSelect(to, hourly(DAY_START + 60, DAY_END), clock, dp.to);
+      from.disabled = to.disabled = !dp.on;
+      from.onchange = () => setDay(k, { from: +from.value });
+      to.onchange = () => setDay(k, { to: +to.value });
+      const reset = el('button', 'rm');
+      reset.type = 'button';
+      reset.title = L().planReset;
+      reset.setAttribute('aria-label', L().planReset);
+      reset.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg>';
+      reset.style.visibility = custom ? 'visible' : 'hidden';
+      reset.onclick = () => { delete planCfg.byDate[k]; scheduleChanged(); };
+      row.append(chip, from, el('span', 'dash', '–'), to, reset);
+      return row;
+    }));
+  }
+
   function renderPlanner() {
+    $('planDlg').dataset.tab = planTab;
+    document.querySelectorAll('#planTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === planTab));
+    renderPlanWeek();
     $('planDays').replaceChildren(...L().daysShort.map((d, i) => {
       const b = el('button', planCfg.days[i] ? 'on' : '', d);
       b.type = 'button';
       b.setAttribute('aria-pressed', !!planCfg.days[i]);
-      b.onclick = () => { planCfg.days[i] = planCfg.days[i] ? 0 : 1; planResult = null; savePlanCfg(); render(); renderTimer(); renderPlanner(); };
+      b.onclick = () => { planCfg.days[i] = planCfg.days[i] ? 0 : 1; scheduleChanged(); };
       return b;
     }));
-    const fill = (id, values, label, value) => {
-      const s = $(id);
-      s.innerHTML = values.map(v => `<option value="${v}">${label(v)}</option>`).join('');
-      s.value = value;
-    };
     const half = (a, b) => Array.from({ length: (b - a) / 30 + 1 }, (_, i) => a + i * 30);
-    const clock = v => (v === 1440 ? '24:00' : hm(v));
-    fill('planFrom', half(DAY_START, DAY_END - 60), hm, planCfg.from);
-    fill('planTo', half(DAY_START + 60, DAY_END), clock, planCfg.to);
-    fill('planBlock', [60, 90, 120, 180, 240], fmtH, planCfg.block);
-    fill('planGap', [0, 10, 15, 30], v => (v ? `${v}${L().min}` : L().noBreak), planCfg.gap);
-    fill('planLunchFrom', half(DAY_START, DAY_END - 30), hm, lunch.slots[0].start);
-    fill('planLunchTo', half(DAY_START + 30, DAY_END), clock, lunch.slots[0].end);
+    fillSelect($('planFrom'), hourly(DAY_START, DAY_END - 60), hm, planCfg.from);
+    fillSelect($('planTo'), hourly(DAY_START + 60, DAY_END), clock, planCfg.to);
+    fillSelect($('planBlock'), [60, 90, 120, 180, 240], fmtH, planCfg.block);
+    fillSelect($('planGap'), [0, 10, 15, 30], v => (v ? `${v}${L().min}` : L().noBreak), planCfg.gap);
+    fillSelect($('planLunchFrom'), half(DAY_START, DAY_END - 30), hm, lunch.slots[0].start);
+    fillSelect($('planLunchTo'), half(DAY_START + 30, DAY_END), clock, lunch.slots[0].end);
     $('planLunch').setAttribute('aria-pressed', !!lunch.on);
     $('planLunchFrom').disabled = $('planLunchTo').disabled = !lunch.on;
     tasks.forEach(normalizeTask);
@@ -1338,16 +1441,17 @@
 
   function buildPlanner() {
     const dlg = $('planDlg');
-    $('planCard').onclick = () => { renderPlanner(); dlg.showModal(); };
+    $('planCard').onclick = () => { planWeek = weekStart(sel); renderPlanner(); dlg.showModal(); };
     $('planClose').onclick = () => dlg.close();
     dlg.addEventListener('click', ev => { if (ev.target === dlg) dlg.close(); }); // click on the backdrop
+    document.querySelectorAll('#planTabs button').forEach(b => { b.onclick = () => { planTab = b.dataset.tab; renderPlanner(); }; });
+    $('planWeekPrev').onclick = () => { planWeek = addDays(planWeek, -7); renderPlanWeek(); };
+    $('planWeekNext').onclick = () => { planWeek = addDays(planWeek, 7); renderPlanWeek(); };
     [['planFrom', 'from'], ['planTo', 'to'], ['planBlock', 'block'], ['planGap', 'gap']].forEach(([id, prop]) => {
       $(id).onchange = () => {
         planCfg[prop] = +$(id).value;
-        if (planCfg.to <= planCfg.from) planCfg.to = Math.min(planCfg.from + 60, DAY_END);
-        planResult = null;
-        savePlanCfg();
-        renderPlanner();
+        if (planCfg.to <= planCfg.from) { if (prop === 'from') planCfg.to = Math.min(planCfg.from + 60, DAY_END); else planCfg.from = Math.max(planCfg.to - 60, DAY_START); }
+        scheduleChanged();
       };
     });
     // Lunch break: shown in the calendar on working days and kept free by the planner.
@@ -1433,6 +1537,7 @@
     timer = { ...timer, ...(remote.timer || {}), mode: '12', half: null };
     if (Array.isArray(remote.tasks)) tasks = remote.tasks;
     if (remote.planCfg) planCfg = { ...planCfg, ...remote.planCfg };
+    if (!planCfg.byDate || typeof planCfg.byDate !== 'object') planCfg.byDate = {};
     planResult = null;
     saveEvents(); saveLunch(); saveTimer(); saveTasks(); savePlanCfg();
     setLocal('cd.updated', remote.updated || 0);
@@ -1522,7 +1627,7 @@
   buildEditor();
   buildDial();
   buildPlanner();
-  ensureSel();
+  ensureDialSel(key(sel));
   render();
   renderTimer();
   renderClock();
