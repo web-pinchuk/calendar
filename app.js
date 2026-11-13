@@ -1520,9 +1520,26 @@
     if (planTab === 'stats') renderStats();
   }
 
+  // Blocks that got extra time ranges in the calendar before the plan learned to follow them:
+  // an exact-time task still matching the first range of its block takes over the other ranges,
+  // so the next Save does not drop them.
+  function adoptExtraTimes() {
+    let changed = false;
+    tasks.forEach(t => {
+      if (!isFixed(t) || t.more) return;
+      const e = events.find(x => x.plan === t.id);
+      if (!e || e.date !== t.date || e.slots.length < 2) return;
+      const slots = e.slots.map(s => ({ ...s })).sort((a, b) => a.start - b.start);
+      if (slots[0].start !== t.from || slots[0].end !== t.to) return;
+      t.more = slots.slice(1);
+      changed = true;
+    });
+    if (changed) saveTasks();
+  }
+
   function buildPlanner() {
     const dlg = $('planDlg');
-    $('planCard').onclick = () => { planWeek = weekStart(sel); statMonth = new Date(sel.getFullYear(), sel.getMonth(), 1); renderPlanner(); dlg.showModal(); };
+    $('planCard').onclick = () => { planWeek = weekStart(sel); statMonth = new Date(sel.getFullYear(), sel.getMonth(), 1); adoptExtraTimes(); renderPlanner(); dlg.showModal(); };
     // Statistics: month arrows, and one tooltip shared by the chart columns, project rows and activity cells.
     const pane = $('planStats'), tip = el('div', 'st-tip');
     tip.hidden = true;
