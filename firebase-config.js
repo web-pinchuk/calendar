@@ -10,6 +10,10 @@ window.FIREBASE_CONFIG = {
   appId: '1:51647562460:web:beb2af1db0c3345b0cea19',
 };
 
+// Account id of the site owner. Only the owner, and the invited people the owner allows,
+// may keep a calendar of their own here (the same id is written in firestore.rules).
+window.OWNER_UID = 'j1NM8SN6ApOFAK55Ro0UU3jPFxx2';
+
 // Address of the Google Apps Script that sends invitation letters from the owner's Gmail
 // (see invite-script.gs). Empty: the site opens a ready letter in Gmail instead.
 window.INVITE_URL = '';
