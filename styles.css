@@ -597,3 +597,9 @@ button { cursor: pointer; border: 0; background: none; }
 .ev .grip.g-bottom { bottom: 0; }
 .ev .grip.g-top::after { top: 2px; }
 .ev .grip.g-bottom::after { bottom: 2px; }
+
+/* ================= v18: gauge dial ================= */
+.dial .ring { stroke-linecap: round; stroke: rgba(255, 255, 255, .1); stroke-width: 1.5; }
+
+/* ================= v19: planner icon as a rounded tile ================= */
+.plan-ico { border-radius: 13px; }
