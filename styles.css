@@ -485,3 +485,14 @@ button { cursor: pointer; border: 0; background: none; }
   .task-fields.by-days, .task-fields.by-hours { grid-template-columns: 1fr 1fr; }
   .fld.wide { grid-column: 1 / -1; }
 }
+
+/* ================= v12: done tasks ================= */
+.ev.done { opacity: .72; }
+.ev.done strong::before { content: "\2713\00a0"; font-weight: 700; }
+.ev.done.dragging, .ev.done:hover { opacity: 1; }
+
+/* ================= v13: one-line blocks keep the whole time ================= */
+.ev.short { gap: 6px; }
+.ev.short strong { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ev.short span { flex: none; }
+.ev:not(.short) strong, .ev:not(.short) span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
