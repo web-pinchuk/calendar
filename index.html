@@ -137,12 +137,14 @@
           <label><span data-i18n="planBlock">Focus block</span><select id="planBlock"></select></label>
           <label><span data-i18n="planGap">Break</span><select id="planGap"></select></label>
         </div>
+        <div class="plan-lunch">
+          <button type="button" class="plan-toggle" id="planLunch" aria-pressed="false"><i></i><span data-i18n="planLunch">Lunch break</span></button>
+          <select id="planLunchFrom" aria-label="Lunch from"></select>
+          <select id="planLunchTo" aria-label="Lunch to"></select>
+        </div>
       </section>
       <section class="plan-sec">
         <h4 data-i18n="planProjectsTitle">Projects</h4>
-        <div class="task task-head" id="planTaskHead">
-          <span class="t-sw"></span><span class="t-name" data-i18n="planName">Project</span><span class="t-hrs" data-i18n="planHours">Hours</span><span class="t-dl" data-i18n="planDeadline">Deadline</span><span class="t-diff" data-i18n="planDiff">Difficulty</span><span class="t-rm"></span>
-        </div>
         <div id="planTasks"></div>
         <button type="button" class="add-slot" id="planAdd">+ <span data-i18n="planAddTask">Add project</span></button>
       </section>
