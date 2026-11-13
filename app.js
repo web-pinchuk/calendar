@@ -23,7 +23,9 @@
       inMin: m => `In ${m} min`, startsNow: 'Starting now', bell: 'Event notifications',
       appName: 'Account',
       planner: 'Planner', planEmpty: 'Plan your projects', planCount: n => (n === 1 ? '1 project' : n + ' projects'),
-      planHelp: 'List your projects with hours and deadlines. The planner fits them into your free time: nearest deadlines first, hard work earlier in the day.',
+      planHelp: 'Days: hours are spread between the start date and the deadline, nearest deadlines first, hard work earlier in the day. Hours: a short task at an exact time.',
+      planStart: 'Start', planDate: 'Date', planDur: 'Duration', planMode: 'Planning mode', modeDays: 'Days', modeHours: 'Hours',
+      planLunch: 'Lunch break', planFixed: 'Scheduled', planPast: 'This time has already passed',
       planWork: 'Working time', planFrom: 'From', planTo: 'To', planBlock: 'Focus block', planGap: 'Break', noBreak: 'No break', h: 'h', min: ' min',
       planProjectsTitle: 'Projects', planName: 'Project', planHours: 'Hours', planDeadline: 'Deadline', planDiff: 'Difficulty', diff: ['Easy', 'Medium', 'Hard'],
       planAddTask: 'Add project', removeTask: 'Remove project', planClear: 'Clear plan', planRun: 'Plan',
@@ -59,7 +61,9 @@
       appName: 'Акаунт',
       planner: 'Планувальник', planEmpty: 'Розпланувати проєкти',
       planCount: n => n + (n % 10 === 1 && n % 100 !== 11 ? ' проєкт' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? ' проєкти' : ' проєктів'),
-      planHelp: 'Додайте проєкти з годинами й дедлайнами. Планувальник розкладе їх у вільний час: спершу найближчі дедлайни, складне на початок дня.',
+      planHelp: 'Дні: години розкладаються між датою початку й дедлайном, спершу найближчі дедлайни, складне на початок дня. Години: коротке завдання на точний час.',
+      planStart: 'Початок', planDate: 'Дата', planDur: 'Тривалість', planMode: 'Режим планування', modeDays: 'Дні', modeHours: 'Години',
+      planLunch: 'Обідня перерва', planFixed: 'Заплановано', planPast: 'Цей час уже минув',
       planWork: 'Робочий час', planFrom: 'З', planTo: 'До', planBlock: 'Блок роботи', planGap: 'Перерва', noBreak: 'Без перерви', h: ' год', min: ' хв',
       planProjectsTitle: 'Проєкти', planName: 'Проєкт', planHours: 'Години', planDeadline: 'Дедлайн', planDiff: 'Складність', diff: ['Легко', 'Середньо', 'Важко'],
       planAddTask: 'Додати проєкт', removeTask: 'Прибрати проєкт', planClear: 'Очистити план', planRun: 'Розпланувати',
@@ -127,7 +131,7 @@
   let sel = new Date(); sel.setHours(0, 0, 0, 0);
   let miniMonth = new Date(sel.getFullYear(), sel.getMonth(), 1);
   let events = load('cd.events', []) || [];
-  let lunch = { title: '', color: 'yellow', onDial: false, slots: [{ start: 720, end: 780 }], ...load('cd.lunch', {}) };
+  let lunch = { on: false, title: '', color: 'yellow', onDial: false, slots: [{ start: 720, end: 780 }], ...load('cd.lunch', {}) };
   let draft = null; // project being edited in the popover
   let H = 30; // px per hour, fitted to the viewport so the whole day is visible
   let dragging = false, dragEndedAt = 0, popClosedAt = 0;
@@ -170,9 +174,8 @@
 
   const lunchOn = k => ({ id: LUNCH, daily: true, date: k, ...lunch, title: lunch.title || L().lunch });
   const firstStart = e => Math.min(...e.slots.map(s => s.start));
-  const LUNCH_ENABLED = false; // the automatic daily lunch block is switched off: the calendar starts empty
-  const isWorkday = k => dow(fromKey(k)) < 5; // (when enabled) lunch is scheduled Monday to Friday only
-  const projectsOn = (k, withLunch = true) => events.filter(e => e.date === k).concat(LUNCH_ENABLED && withLunch && isWorkday(k) ? [lunchOn(k)] : [])
+  // The lunch break is a per-account setting (Planner -> Working time), shown on working days only.
+  const projectsOn = (k, withLunch = true) => events.filter(e => e.date === k).concat(lunch.on && withLunch && planCfg.days[dow(fromKey(k))] ? [lunchOn(k)] : [])
     .sort((a, b) => firstStart(a) - firstStart(b));
   // One calendar block per time slot of every project of the day.
   const blocksOn = k => projectsOn(k).flatMap(e => e.slots.map((s, i) => ({ e, i, start: s.start, end: s.end })))
@@ -616,7 +619,7 @@
     const slots = draft.slots.map(s => ({ ...s })).sort((a, b) => a.start - b.start);
     if (!title) return;
     if (draft.id === LUNCH) {
-      lunch = { slots, onDial, color: draft.color, title: title === L().lunch ? '' : title };
+      lunch = { on: lunch.on, slots, onDial, color: draft.color, title: title === L().lunch ? '' : title };
       saveLunch();
       closeEditor();
       render();
@@ -878,19 +881,23 @@
   const renderClock = () => { $('clock').textContent = kyivFmt.format(new Date()); };
 
   // ---------- Planner ----------
-  // The user lists projects (hours, deadline, difficulty); the planner turns them into calendar
-  // blocks inside the free working time. Rules: nearest deadline first, at most two focus blocks
-  // of one project per day while the deadlines allow it, harder work earlier in the day.
+  // The user lists projects; the planner turns them into calendar blocks.
+  //   mode "days"  - flexible: N hours spread between a start date and a deadline, inside the
+  //                  free working time. Nearest deadline first, at most two focus blocks of one
+  //                  project per day while the deadlines allow it, harder work earlier in the day.
+  //   mode "hours" - a short task at an exact time: one day, from-to. Flexible work goes around it.
   // Planner blocks are ordinary projects tagged with `plan: <task id>`. Blocks that have already
   // started stay in the calendar and count as done hours; everything later is re-planned.
   let tasks = load('cd.tasks', []) || [];
-  let planCfg = { days: [1, 1, 1, 1, 1, 0, 0], from: 540, to: 1080, block: 120, gap: 15, ...load('cd.planCfg', {}) };
-  let planResult = null; // outcome of the last run: { byTask: { id: { rem, late, last, nothing } }, blocks, days }
+  let planCfg = { days: [1, 1, 1, 1, 1, 0, 0], from: 600, to: 1080, block: 120, gap: 15, ...load('cd.planCfg', {}) };
+  let planResult = null; // outcome of the last run: { byTask: { id: {...} }, blocks, days }
   const saveTasks = () => save('cd.tasks', tasks);
   const savePlanCfg = () => save('cd.planCfg', planCfg);
   const nowMinutes = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
   const fmtH = min => `${+(min / 60).toFixed(2)}${L().h}`;
-  const validTasks = () => tasks.filter(t => t.title.trim() && t.hours > 0 && t.deadline);
+  const isFixed = t => t.mode === 'hours';
+  const endDate = t => (isFixed(t) ? t.date : t.deadline);
+  const validTasks = () => tasks.filter(t => t.title.trim() && (isFixed(t) ? t.date && t.to > t.from : t.hours > 0 && t.deadline));
 
   function splitPlanned() {
     const today = key(new Date()), now = nowMinutes();
@@ -905,44 +912,52 @@
     return { kept, done };
   }
 
-  // Free working intervals of a day: working hours minus fixed projects (with a break around them).
+  // Free working intervals of a day: working hours minus lunch and fixed projects (with a break around those).
   function freeIntervals(k, fixed) {
     if (!planCfg.days[dow(fromKey(k))]) return [];
     let from = Math.max(planCfg.from, DAY_START);
     const to = Math.min(planCfg.to, DAY_END);
     if (k === key(new Date())) from = Math.max(from, Math.ceil((nowMinutes() + 1) / 15) * 15);
     let free = from < to ? [[from, to]] : [];
-    fixed.forEach(e => {
-      if (e.date !== k) return;
-      e.slots.forEach(s => {
-        const a = s.start - planCfg.gap, b = s.end + planCfg.gap;
-        free = free.flatMap(([x, y]) => (b <= x || a >= y ? [[x, y]] : [[x, Math.min(a, y)], [Math.max(b, x), y]].filter(([p, q]) => q > p)));
-      });
-    });
+    const cut = (a, b) => {
+      free = free.flatMap(([x, y]) => (b <= x || a >= y ? [[x, y]] : [[x, Math.min(a, y)], [Math.max(b, x), y]].filter(([p, q]) => q > p)));
+    };
+    if (lunch.on) lunch.slots.forEach(s => cut(s.start, s.end));
+    fixed.forEach(e => { if (e.date === k) e.slots.forEach(s => cut(s.start - planCfg.gap, s.end + planCfg.gap)); });
     return free.filter(([x, y]) => y - x >= 30);
   }
 
   function schedule(perDayCap) {
     const { kept, done } = splitPlanned();
-    const today = fromKey(key(new Date()));
+    const today = fromKey(key(new Date())), todayK = key(today), now = nowMinutes();
+    const out = [], info = {};
+
+    // Exact-time tasks first: they are placed as given and everything else goes around them.
+    validTasks().filter(isFixed).forEach(t => {
+      const started = kept.some(e => e.plan === t.id);
+      const past = t.date < todayK || (t.date === todayK && t.from < now);
+      info[t.id] = { fixed: true, missed: past && !started };
+      if (!past) out.push({ id: uid(), title: t.title.trim(), date: t.date, color: t.color, onDial: false, plan: t.id, slots: [{ start: t.from, end: t.to }] });
+    });
+    const busy = kept.concat(out);
+
     const byDeadline = (a, b) => a.t.deadline.localeCompare(b.t.deadline) || b.t.diff - a.t.diff;
-    const list = validTasks().map(t => {
+    const list = validTasks().filter(t => !isFixed(t)).map(t => {
       const rem = Math.max(0, Math.round((t.hours * 60 - (done[t.id] || 0)) / 15) * 15);
       return { t, rem, late: 0, last: null, nothing: rem === 0 };
     }).sort(byDeadline);
-    const lastDeadline = list.reduce((m, x) => (x.t.deadline > m ? x.t.deadline : m), key(today));
+    const lastDeadline = list.reduce((m, x) => (x.t.deadline > m ? x.t.deadline : m), todayK);
     const horizon = addDays(fromKey(lastDeadline), 21);
-    const out = [];
 
     for (let d = today, n = 0; d <= horizon && n < 180 && list.some(x => x.rem > 0); d = addDays(d, 1), n++) {
-      const k = key(d), free = freeIntervals(k, kept);
+      const k = key(d), free = freeIntervals(k, busy);
       let capacity = free.reduce((sum, [x, y]) => sum + y - x, 0);
       if (!capacity) continue;
 
-      // 1. Choose today's focus blocks: nearest deadline first, limited per project.
+      // 1. Choose today's focus blocks: nearest deadline first, limited per project, not before its start date.
+      //    Projects whose deadline has already passed must not starve the ones that can still make it.
       const count = new Map(), chunks = [];
-      // Projects whose deadline has already passed must not starve the ones that can still make it.
-      const open = c => c.rem > 0 && (count.get(c) || 0) < perDayCap;
+      const open = c => c.rem > 0 && (count.get(c) || 0) < perDayCap && (c.t.start || '') <= k;
       for (;;) {
         const pause = chunks.length ? planCfg.gap : 0, room = capacity - pause;
         if (room < 15) break;
@@ -984,7 +999,8 @@
         x.last = k;
       });
     }
-    return { kept, out, list, score: list.reduce((sum, x) => sum + x.late + x.rem, 0) };
+    list.forEach(x => { info[x.t.id] = { rem: x.rem, late: x.late, last: x.last, nothing: x.nothing }; });
+    return { kept, out, info, score: list.reduce((sum, x) => sum + x.late + x.rem, 0) };
   }
 
   function runPlanner() {
@@ -994,7 +1010,7 @@
     events = r.kept.concat(r.out);
     saveEvents();
     planResult = {
-      byTask: Object.fromEntries(r.list.map(x => [x.t.id, { rem: x.rem, late: x.late, last: x.last, nothing: x.nothing }])),
+      byTask: r.info,
       blocks: r.out.reduce((sum, e) => sum + e.slots.length, 0),
       days: new Set(r.out.map(e => e.date)).size,
     };
@@ -1019,22 +1035,29 @@
   function updatePlanInfo() {
     const { kept, done } = splitPlanned();
     const list = validTasks();
-    const left = t => Math.max(0, t.hours * 60 - (done[t.id] || 0));
+    const todayK = key(new Date()), now = nowMinutes();
+    const left = t => (isFixed(t)
+      ? (t.date > todayK || (t.date === todayK && t.from >= now) ? t.to - t.from : 0)
+      : Math.max(0, t.hours * 60 - (done[t.id] || 0)));
     document.querySelectorAll('#planTasks .task-note').forEach(note => {
       const t = tasks.find(x => x.id === note.dataset.id), r = planResult && planResult.byTask[note.dataset.id];
       note.className = 'task-note';
-      if (!t) { note.textContent = ''; return; }
-      const progress = done[t.id] ? `${fmtH(done[t.id])} ${L().planDone} · ${fmtH(left(t))} ${L().planLeft}` : '';
-      if (!r) note.textContent = progress;
-      else if (r.nothing) note.textContent = L().planAllDone;
+      note.textContent = '';
+      if (!t) return;
+      if (!r) {
+        if (!isFixed(t) && done[t.id]) note.textContent = `${fmtH(done[t.id])} ${L().planDone} · ${fmtH(left(t))} ${L().planLeft}`;
+      } else if (r.fixed) {
+        note.textContent = r.missed ? L().planPast : `${L().planFixed} ${shortDate(t.date)} · ${hm(t.from)} – ${hm(t.to)}`;
+        note.classList.add(r.missed ? 'bad' : 'ok');
+      } else if (r.nothing) note.textContent = L().planAllDone;
       else if (r.rem + r.late > 0) { note.textContent = L().planShort(fmtH(r.rem + r.late)); note.classList.add('bad'); }
       else { note.textContent = `${L().planFits} · ${L().planEnds} ${shortDate(r.last)}`; note.classList.add('ok'); }
     });
     const need = list.reduce((sum, t) => sum + left(t), 0);
-    const lastDeadline = list.reduce((m, t) => (t.deadline > m ? t.deadline : m), '');
+    const lastDeadline = list.reduce((m, t) => (endDate(t) > m ? endDate(t) : m), '');
     let free = 0;
     if (lastDeadline) {
-      for (let d = fromKey(key(new Date())), n = 0; key(d) <= lastDeadline && n < 400; d = addDays(d, 1), n++) {
+      for (let d = fromKey(todayK), n = 0; key(d) <= lastDeadline && n < 400; d = addDays(d, 1), n++) {
         free += freeIntervals(key(d), kept).reduce((sum, [x, y]) => sum + y - x, 0);
       }
     }
@@ -1046,6 +1069,23 @@
     }
     $('planSub').textContent = list.length ? `${L().planCount(list.length)} · ${fmtH(need)}` : L().planEmpty;
   }
+
+  const field = (label, control, cls) => {
+    const wrap = el('label', `fld ${cls || ''}`);
+    wrap.append(el('span', '', label), control);
+    return wrap;
+  };
+  const segmented = (cls, labels, active, onPick) => {
+    const seg = el('div', `seg3 ${cls}`);
+    seg.setAttribute('role', 'group');
+    labels.forEach((label, i) => {
+      const b = el('button', i === active ? 'on' : '', label);
+      b.type = 'button';
+      b.onclick = () => { [...seg.children].forEach((c, j) => c.classList.toggle('on', j === i)); onPick(i); };
+      seg.append(b);
+    });
+    return seg;
+  };
 
   function taskRow(t) {
     const row = el('div', 'task');
@@ -1064,23 +1104,45 @@
     name.type = 'text'; name.maxLength = 80; name.value = t.title; name.placeholder = L().titlePh;
     name.setAttribute('aria-label', L().planName);
     name.oninput = () => { t.title = name.value; edited(); };
-    const hrs = el('input', 't-hrs');
-    hrs.type = 'number'; hrs.min = '0.5'; hrs.max = '500'; hrs.step = '0.5'; hrs.value = t.hours;
-    hrs.setAttribute('aria-label', L().planHours);
-    hrs.oninput = () => { t.hours = clamp(parseFloat(hrs.value) || 0, 0, 500); edited(); };
-    const dl = el('input', 't-dl');
-    dl.type = 'date'; dl.value = t.deadline;
-    dl.setAttribute('aria-label', L().planDeadline);
-    dl.oninput = () => { t.deadline = dl.value; edited(); };
-    const diff = el('div', 'seg3 t-diff');
-    diff.setAttribute('role', 'group');
-    diff.setAttribute('aria-label', L().planDiff);
-    L().diff.forEach((label, i) => {
-      const b = el('button', t.diff === i + 1 ? 'on' : '', label);
-      b.type = 'button';
-      b.onclick = () => { t.diff = i + 1; [...diff.children].forEach((c, j) => c.classList.toggle('on', j === i)); edited(); };
-      diff.append(b);
+
+    const fields = el('div', 'task-fields');
+    const dateInput = (prop, onSet) => {
+      const i = el('input');
+      i.type = 'date';
+      i.value = t[prop] || '';
+      i.oninput = () => { t[prop] = i.value; if (onSet) onSet(); edited(); };
+      return i;
+    };
+    const buildFields = () => {
+      fields.className = `task-fields ${isFixed(t) ? 'by-hours' : 'by-days'}`;
+      if (isFixed(t)) {
+        // Short task at an exact time: date + from/to, the duration follows.
+        const from = el('select'), to = el('select'), dur = el('output', 'dur', fmtH(t.to - t.from));
+        from.innerHTML = START_OPTS; to.innerHTML = END_OPTS;
+        from.value = t.from; to.value = t.to;
+        const sync = () => { dur.textContent = fmtH(t.to - t.from); edited(); };
+        from.onchange = () => { t.from = +from.value; if (t.to <= t.from) { t.to = Math.min(t.from + 60, DAY_END); to.value = t.to; } sync(); };
+        to.onchange = () => { t.to = +to.value; if (t.to <= t.from) { t.from = Math.max(t.to - 60, DAY_START); from.value = t.from; } sync(); };
+        fields.replaceChildren(field(L().planDate, dateInput('date')), field(L().planFrom, from), field(L().planTo, to), field(L().planDur, dur));
+      } else {
+        // Flexible project: hours spread between the start date and the deadline.
+        let start, deadline;
+        start = dateInput('start', () => { if (t.deadline < t.start) { t.deadline = t.start; deadline.value = t.deadline; } });
+        deadline = dateInput('deadline', () => { if (t.start > t.deadline) { t.start = t.deadline; start.value = t.start; } });
+        const hrs = el('input');
+        hrs.type = 'number'; hrs.min = '0.5'; hrs.max = '500'; hrs.step = '0.5'; hrs.value = t.hours;
+        hrs.oninput = () => { t.hours = clamp(parseFloat(hrs.value) || 0, 0, 500); edited(); };
+        const diff = segmented('', L().diff, t.diff - 1, i => { t.diff = i + 1; edited(); });
+        fields.replaceChildren(field(L().planStart, start), field(L().planDeadline, deadline), field(L().planHours, hrs), field(L().planDiff, diff, 'wide'));
+      }
+    };
+    const mode = segmented('t-mode', [L().modeDays, L().modeHours], isFixed(t) ? 1 : 0, i => {
+      t.mode = i ? 'hours' : 'days';
+      buildFields();
+      edited();
     });
+    mode.setAttribute('aria-label', L().planMode);
+
     const rm = el('button', 'rm t-rm');
     rm.type = 'button';
     rm.title = L().removeTask;
@@ -1089,8 +1151,24 @@
     rm.onclick = () => { tasks = tasks.filter(x => x !== t); planResult = null; saveTasks(); renderPlanner(); };
     const note = el('div', 'task-note');
     note.dataset.id = t.id;
-    row.append(sw, name, hrs, dl, diff, rm, note);
+    buildFields();
+    row.append(sw, name, mode, rm, fields, note);
     return row;
+  }
+
+  // Older saved projects have no mode / start date / exact time yet.
+  function normalizeTask(t) {
+    const todayK = key(new Date());
+    const nextHour = clamp(Math.ceil((nowMinutes() + 1) / 60) * 60, DAY_START, DAY_END - 60);
+    if (t.mode !== 'hours') t.mode = 'days';
+    if (!t.start) t.start = todayK;
+    if (!t.deadline) t.deadline = key(addDays(new Date(), 7));
+    if (!(t.hours > 0)) t.hours = 2;
+    if (!t.diff) t.diff = 2;
+    if (!t.date) t.date = todayK;
+    if (!(t.from >= DAY_START)) t.from = nextHour;
+    if (!(t.to > t.from)) t.to = Math.min(t.from + 60, DAY_END);
+    return t;
   }
 
   function renderPlanner() {
@@ -1098,7 +1176,7 @@
       const b = el('button', planCfg.days[i] ? 'on' : '', d);
       b.type = 'button';
       b.setAttribute('aria-pressed', !!planCfg.days[i]);
-      b.onclick = () => { planCfg.days[i] = planCfg.days[i] ? 0 : 1; planResult = null; savePlanCfg(); renderPlanner(); };
+      b.onclick = () => { planCfg.days[i] = planCfg.days[i] ? 0 : 1; planResult = null; savePlanCfg(); render(); renderTimer(); renderPlanner(); };
       return b;
     }));
     const fill = (id, values, label, value) => {
@@ -1107,13 +1185,17 @@
       s.value = value;
     };
     const half = (a, b) => Array.from({ length: (b - a) / 30 + 1 }, (_, i) => a + i * 30);
+    const clock = v => (v === 1440 ? '24:00' : hm(v));
     fill('planFrom', half(DAY_START, DAY_END - 60), hm, planCfg.from);
-    fill('planTo', half(DAY_START + 60, DAY_END), v => (v === 1440 ? '24:00' : hm(v)), planCfg.to);
+    fill('planTo', half(DAY_START + 60, DAY_END), clock, planCfg.to);
     fill('planBlock', [60, 90, 120, 180, 240], fmtH, planCfg.block);
     fill('planGap', [0, 10, 15, 30], v => (v ? `${v}${L().min}` : L().noBreak), planCfg.gap);
-    const list = $('planTasks');
-    list.replaceChildren(...(tasks.length ? tasks.map(taskRow) : [el('p', 'plan-empty', L().planNoTasks)]));
-    $('planTaskHead').hidden = !tasks.length;
+    fill('planLunchFrom', half(DAY_START, DAY_END - 30), hm, lunch.slots[0].start);
+    fill('planLunchTo', half(DAY_START + 30, DAY_END), clock, lunch.slots[0].end);
+    $('planLunch').setAttribute('aria-pressed', !!lunch.on);
+    $('planLunchFrom').disabled = $('planLunchTo').disabled = !lunch.on;
+    tasks.forEach(normalizeTask);
+    $('planTasks').replaceChildren(...(tasks.length ? tasks.map(taskRow) : [el('p', 'plan-empty', L().planNoTasks)]));
     updatePlanInfo();
   }
 
@@ -1131,8 +1213,17 @@
         renderPlanner();
       };
     });
+    // Lunch break: shown in the calendar on working days and kept free by the planner.
+    const lunchChanged = () => { planResult = null; saveLunch(); render(); renderTimer(); renderPlanner(); };
+    $('planLunch').onclick = () => { lunch.on = !lunch.on; lunchChanged(); };
+    $('planLunchFrom').onchange = $('planLunchTo').onchange = ev => {
+      let start = +$('planLunchFrom').value, end = +$('planLunchTo').value;
+      if (end <= start) { if (ev.target.id === 'planLunchFrom') end = Math.min(start + 60, DAY_END); else start = Math.max(end - 60, DAY_START); }
+      lunch.slots = [{ start, end }];
+      lunchChanged();
+    };
     $('planAdd').onclick = () => {
-      tasks.push({ id: uid(), title: '', hours: 2, deadline: key(addDays(new Date(), 7)), diff: 2, color: PALETTE[tasks.length % PALETTE.length].id });
+      tasks.push(normalizeTask({ id: uid(), title: '', color: PALETTE[tasks.length % PALETTE.length].id }));
       planResult = null;
       saveTasks();
       renderPlanner();
