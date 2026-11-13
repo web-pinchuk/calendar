@@ -52,7 +52,7 @@
       accOwn: 'This is your own email', accSaved: 'Access saved', accGone: 'Access removed',
       invSending: 'Sending the invitation…', invSent: m => 'Invitation sent to ' + m, invFailed: 'Access saved, but the invitation was not sent',
       pOnline: 'Online now', pOffline: 'Offline', pNever: 'Has not opened it yet', pSeen: when => 'Last visit: ' + when,
-      menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
+      menuLang: 'Language', menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
       accInvite: 'Send the invitation', invSubject: 'Access to my work calendar',
       invBody: (link, mail, name) => `Hello!\n\nI have given you view access to my work calendar.\n\nOpen it here: ${link}\nSign in with this Google account: ${mail}\n\n${name}`,
       viewOnly: 'View only', gateTitle: 'Shared calendar', gateSignIn: 'Sign in with the Google account that was given access.',
@@ -109,7 +109,7 @@
       accOwn: 'Це ваша власна пошта', accSaved: 'Доступ збережено', accGone: 'Доступ забрано',
       invSending: 'Надсилаю запрошення…', invSent: m => 'Запрошення надіслано на ' + m, invFailed: 'Доступ збережено, але запрошення не надіслано',
       pOnline: 'Зараз онлайн', pOffline: 'Офлайн', pNever: 'Ще не відкривали', pSeen: when => 'Останній візит: ' + when,
-      menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
+      menuLang: 'Мова', menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
       accInvite: 'Надіслати запрошення', invSubject: 'Доступ до мого робочого календаря',
       invBody: (link, mail, name) => `Вітаю!\n\nЯ надав вам доступ на перегляд мого робочого календаря.\n\nВідкрити: ${link}\nУвійдіть через цей Google-акаунт: ${mail}\n\n${name}`,
       viewOnly: 'Лише перегляд', gateTitle: 'Спільний календар', gateSignIn: 'Увійдіть через Google-акаунт, якому надали доступ.',
@@ -252,7 +252,9 @@
       applyLang();
       render();
       renderTimer();
-      setSyncState($('cloud').dataset.state || 'off');
+      renderHead();
+      updatePlanInfo();
+      setSyncState($('cloud').dataset.state || 'off'); // also redraws the access list and the people
     };
   });
 
