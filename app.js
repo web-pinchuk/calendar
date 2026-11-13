@@ -51,7 +51,8 @@
       accNone: 'Nobody has access yet.', accBadMail: 'Enter a full email address', accHas: 'This email is already in the list',
       accOwn: 'This is your own email', accSaved: 'Access saved', accGone: 'Access removed',
       invSending: 'Sending the invitation…', invSent: m => 'Invitation sent to ' + m, invFailed: 'Access saved, but the invitation was not sent',
-      accInvite: 'Send the invitation',invSubject: 'Access to my work calendar',
+      menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
+      accInvite: 'Send the invitation', invSubject: 'Access to my work calendar',
       invBody: (link, mail, name) => `Hello!\n\nI have given you view access to my work calendar.\n\nOpen it here: ${link}\nSign in with this Google account: ${mail}\n\n${name}`,
       viewOnly: 'View only', gateTitle: 'Shared calendar', gateSignIn: 'Sign in with the Google account that was given access.',
       gateLoading: 'Opening the calendar…', gateDenied: m => 'No access for ' + m + '. Ask the owner to add this email.',
@@ -106,7 +107,8 @@
       accNone: 'Доступу ще ні в кого немає.', accBadMail: 'Введіть повну адресу пошти', accHas: 'Ця пошта вже є у списку',
       accOwn: 'Це ваша власна пошта', accSaved: 'Доступ збережено', accGone: 'Доступ забрано',
       invSending: 'Надсилаю запрошення…', invSent: m => 'Запрошення надіслано на ' + m, invFailed: 'Доступ збережено, але запрошення не надіслано',
-      accInvite: 'Надіслати запрошення',invSubject: 'Доступ до мого робочого календаря',
+      menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
+      accInvite: 'Надіслати запрошення', invSubject: 'Доступ до мого робочого календаря',
       invBody: (link, mail, name) => `Вітаю!\n\nЯ надав вам доступ на перегляд мого робочого календаря.\n\nВідкрити: ${link}\nУвійдіть через цей Google-акаунт: ${mail}\n\n${name}`,
       viewOnly: 'Лише перегляд', gateTitle: 'Спільний календар', gateSignIn: 'Увійдіть через Google-акаунт, якому надали доступ.',
       gateLoading: 'Відкриваю календар…', gateDenied: m => 'Немає доступу для ' + m + '. Попросіть власника додати цю пошту.',
@@ -256,6 +258,7 @@
   function renderHead() {
     const now = new Date();
     $('bell').classList.toggle('on', notifOn());
+    $('bellState').textContent = notifOn() ? L().on : L().off;
   }
 
   function renderMini() {
@@ -1787,7 +1790,13 @@
     const label = { off: L().accIsOff, ok: L().accIsOk, busy: L().accIsBusy, error: `${L().accIsError}${syncError ? ': ' + syncError : ''}` }[state];
     b.title = label;
     b.setAttribute('aria-label', label);
-    $('syncStatus').textContent = label;
+    $('syncStatus').textContent = $('menuStatus').textContent = label;
+    $('menuBtn').dataset.state = state;
+    $('menuBtn').title = L().menu;
+    $('menuBtn').setAttribute('aria-label', L().menu);
+    $('mAccess').hidden = $('mLink').hidden = !user || !!GUEST;
+    $('mIn').hidden = !fbConfig || !!user;
+    $('mOut').hidden = !user;
     // Under the app name: which account the calendar belongs to.
     $('brandSub').textContent = GUEST ? (guestOwner ? `${guestOwner} · ${L().viewOnly}` : L().viewOnly)
       : user ? (state === 'error' ? `${user.email} · ${L().accIsError}` : user.email) : L().syncLocal;
@@ -1801,6 +1810,7 @@
   const shareLink = () => `${location.origin}${location.pathname}?u=${user.uid}`;
   const accMsg = text => { $('accMsg').textContent = text; };
   function renderAccess() {
+    $('accessCount').textContent = viewers.length || '';
     const box = $('access');
     box.hidden = !user || !!GUEST;
     if (box.hidden) return;
@@ -1964,9 +1974,19 @@
 
   async function startSync() {
     const dlg = $('syncDlg');
-    $('cloud').onclick = () => { setSyncState($('cloud').dataset.state || 'off'); dlg.showModal(); };
+    // Menu under the arrow in the header: notifications, access, sign in / out.
+    const menu = $('accMenu'), menuBtn = $('menuBtn');
+    const showMenu = on => { menu.hidden = !on; menuBtn.setAttribute('aria-expanded', on); };
+    menuBtn.onclick = () => showMenu(menu.hidden);
+    document.addEventListener('pointerdown', ev => { if (!menu.hidden && !menu.contains(ev.target) && !menuBtn.contains(ev.target)) showMenu(false); });
+    document.addEventListener('keydown', ev => { if (ev.key === 'Escape') showMenu(false); });
+    menu.addEventListener('click', ev => { const b = ev.target.closest('.mi'); if (b && b.id !== 'bell') showMenu(false); });
+    $('mAccess').onclick = () => { setSyncState($('cloud').dataset.state || 'off'); dlg.showModal(); $('accMail').focus(); };
+    $('mLink').onclick = async () => {
+      try { await navigator.clipboard.writeText(shareLink()); toast(L().accCopied); } catch { setSyncState($('cloud').dataset.state || 'off'); dlg.showModal(); $('accLink').focus(); }
+    };
     $('syncClose').onclick = () => dlg.close();
-    $('accIn').onclick = $('gateIn').onclick = async () => {
+    $('accIn').onclick = $('gateIn').onclick = $('mIn').onclick = async () => {
       if (!fb) return;
       try {
         justSignedIn = true;
@@ -1978,7 +1998,7 @@
         setSyncState('error');
       }
     };
-    $('accOut').onclick = $('gateOut').onclick = async () => { if (fb) await fb.signOut(fb.$auth); dlg.close(); };
+    $('accOut').onclick = $('gateOut').onclick = $('mOut').onclick = async () => { if (fb) await fb.signOut(fb.$auth); dlg.close(); };
     $('accAdd').onclick = addViewer;
     $('accMail').onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); addViewer(); } };
     $('accMail').oninput = () => accMsg('');
