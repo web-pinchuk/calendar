@@ -858,3 +858,9 @@ body.guest .col, body.guest .dial-btn { cursor: default; }
 .mi-row > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mi-row .lang { flex: none; background: rgba(255, 255, 255, .07); }
 .mi-row .lang button { padding: 6px 11px; }
+
+/* ---------- v29: "own calendar" switch beside an invited person ---------- */
+.person-rm.own.on { color: var(--violet); background: rgba(183, 156, 245, .16); }
+.person-rm.own:hover { color: var(--violet); }
+.acc-rm.own.on { color: #6a3fd0; background: #e7defb; }
+.acc-rm.own:hover { color: #6a3fd0; }
