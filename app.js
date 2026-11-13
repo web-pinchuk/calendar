@@ -30,6 +30,12 @@
       planWork: 'Working time', planFrom: 'From', planTo: 'To', planBlock: 'Focus block', planGap: 'Break', noBreak: 'No break', h: 'h', min: ' min',
       planProjectsTitle: 'Projects', planName: 'Project', planHours: 'Hours', planDeadline: 'Deadline', planDiff: 'Difficulty', diff: ['Easy', 'Medium', 'Hard'],
       planAddTask: 'Add project', removeTask: 'Remove project', planClear: 'Clear plan', planRun: 'Save', planSaved: 'Plan saved',
+      planStats: 'Statistics', stWorked: 'Worked', stAhead: 'Still planned', stCount: 'Projects', stAvg: 'Per working day',
+      stVs: (d, m) => `${d} vs ${T.en.months[m]}`, stByDay: 'Hours by day', stMonth: 'Projects this month', stAll: 'All projects',
+      stActivity: 'Activity', stWeeks: 'last 26 weeks', stEmpty: 'Nothing in the calendar for this month yet.', stNoData: 'Projects from the calendar will be collected here.',
+      stDone: 'done', stPlanned: 'planned', stInPlan: 'In plan · deadline', stFinished: 'Finished', stUntil: 'Until', stOf: 'of',
+      stBest: 'Busiest day', stStreak: 'Working days in a row', stWeekday: 'Strongest weekday', stLess: 'Less', stMore: 'More',
+      stDaysLeft: n => (n === 0 ? 'today' : n === 1 ? '1 day left' : n + ' days left'), stDays: n => (n === 1 ? '1 day' : n + ' days'),
       planSchedule: 'Working hours', planUsual: 'Usual hours', planBreaks: 'Focus and breaks', planReset: 'Back to the usual hours',
       planNoTasks: 'No projects yet. Add the first one.', planNone: 'Add a project with a name and dates first.',
       planNeed: 'To do', planFree: 'free before the last deadline', planDone: 'done', planLeft: 'left',
@@ -70,6 +76,13 @@
       planWork: 'Робочий час', planFrom: 'З', planTo: 'До', planBlock: 'Блок роботи', planGap: 'Перерва', noBreak: 'Без перерви', h: ' год', min: ' хв',
       planProjectsTitle: 'Проєкти', planName: 'Проєкт', planHours: 'Години', planDeadline: 'Дедлайн', planDiff: 'Складність', diff: ['Легко', 'Середньо', 'Важко'],
       planAddTask: 'Додати проєкт', removeTask: 'Прибрати проєкт', planClear: 'Очистити план', planRun: 'Зберегти', planSaved: 'План збережено',
+      planStats: 'Статистика', stWorked: 'Відпрацьовано', stAhead: 'Ще заплановано', stCount: 'Проєктів', stAvg: 'За робочий день',
+      stVs: (d, m) => `${d} проти ${T.uk.monthsGen[m]}`, stByDay: 'Години по днях', stMonth: 'Проєкти за місяць', stAll: 'Усі проєкти',
+      stActivity: 'Активність', stWeeks: 'останні 26 тижнів', stEmpty: 'За цей місяць у календарі ще нічого немає.', stNoData: 'Тут збиратимуться проєкти з календаря.',
+      stDone: 'зроблено', stPlanned: 'заплановано', stInPlan: 'У плані · дедлайн', stFinished: 'Завершено', stUntil: 'До', stOf: 'з',
+      stBest: 'Найзавантаженіший день', stStreak: 'Робочих днів поспіль', stWeekday: 'Найсильніший день тижня', stLess: 'Менше', stMore: 'Більше',
+      stDaysLeft: n => (n === 0 ? 'сьогодні' : 'ще ' + T.uk.stDays(n)),
+      stDays: n => n + (n % 10 === 1 && n % 100 !== 11 ? ' день' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? ' дні' : ' днів'),
       planSchedule: 'Робочі години', planUsual: 'Звичайний графік', planBreaks: 'Блоки й перерви', planReset: 'Повернути звичайний графік',
       planNoTasks: 'Проєктів ще немає. Додайте перший.', planNone: 'Спершу додайте проєкт з назвою й датами.',
       planNeed: 'Залишилось', planFree: 'вільно до останнього дедлайну', planDone: 'зроблено', planLeft: 'залишилось',
@@ -423,13 +436,21 @@
 
   // A planner block changed by hand becomes part of the plan: an exact-time task takes the new
   // time, a flexible project keeps this block where it is (pinned) on the next planning run.
-  function manualEdit(e) {
+  // `before` is the block as it was before the editor changed it: a new name or colour belongs to
+  // the whole project, so the plan and the project's other blocks take it too.
+  function manualEdit(e, before) {
     const t = tasks.find(x => x.id === e.plan);
     if (!t) return;
+    if (before && (before.title !== e.title || before.color !== e.color)) {
+      t.title = e.title; t.color = e.color;
+      events.forEach(x => { if (x.plan === t.id) { x.title = e.title; x.color = e.color; } });
+    }
     if (isFixed(t)) {
-      t.date = e.date; t.from = e.slots[0].start; t.to = e.slots[0].end;
-      saveTasks();
+      const slots = e.slots.map(s => ({ ...s })).sort((a, b) => a.start - b.start);
+      t.date = e.date; t.from = slots[0].start; t.to = slots[0].end;
+      if (slots.length > 1) t.more = slots.slice(1); else delete t.more; // extra time ranges added in the calendar
     } else e.pin = true;
+    saveTasks();
   }
 
   // After a block was stretched or moved, the other projects of that day make room instead of
@@ -522,9 +543,9 @@
         if (real) {
           const slot = real.slots[blk.i] = { start: st.start, end: st.end };
           real.date = st.date; // moving one block to another day moves the whole project
-          if (real.plan) manualEdit(real);
           settleDay(real.date, slot);
           real.slots.sort((a, b) => a.start - b.start);
+          if (real.plan) manualEdit(real);
           saveEvents();
         }
       }
@@ -708,12 +729,24 @@
       closeEditor();
       render();
     } else {
-      const e = { id: draft.id || uid(), title, date: $('fDate').value, slots, onDial, color: draft.color, ...(draft.plan ? { plan: draft.plan, pin: !!draft.pin } : {}) };
+      let e = { id: draft.id || uid(), title, date: $('fDate').value, slots, onDial, color: draft.color, ...(draft.plan ? { plan: draft.plan, pin: !!draft.pin } : draft.proj ? { proj: draft.proj } : {}) };
       if (!e.date) return;
+      if (!e.plan) {
+        // Extra hours entered as a separate block: named like an exact-time task of the plan and
+        // on its day, they join that task as one more time range instead of living beside it.
+        const t = tasks.find(x => isFixed(x) && x.date === e.date && x.title.trim().toLowerCase() === title.toLowerCase());
+        const own = t && events.find(x => x.plan === t.id && x.id !== e.id);
+        if (own) {
+          events = events.filter(x => x.id !== e.id);
+          own.slots.push(...e.slots);
+          e = own;
+        }
+      }
+      const before = events.find(x => x.id === e.id);
       events = events.filter(x => x.id !== e.id).concat(e);
-      if (e.plan) manualEdit(e); // a hand-edited planner block stays in the plan as edited
       e.slots.slice().forEach(slot => settleDay(e.date, slot)); // neighbours make room
       e.slots.sort((a, b) => a.start - b.start);
+      if (e.plan) manualEdit(e, before); // what was changed by hand goes into the plan as well
       planResult = null;
       saveEvents();
       if (e.date === key(new Date())) { timer.sel = trackKey(e); saveTimer(); } else otherSel = { day: e.date, id: trackKey(e) };
@@ -727,7 +760,12 @@
       const id = draft.id;
       events = events.filter(x => x.id !== id);
       saveEvents();
-      if (!draft.plan) { // a planner project keeps its tracked time: its other blocks may remain
+      // An exact-time task is this one block: deleted in the calendar, it leaves the plan as well
+      // (otherwise the next Save would put it back). A flexible project keeps its other blocks.
+      const t = draft.plan && tasks.find(x => x.id === draft.plan);
+      if (t && isFixed(t)) { tasks = tasks.filter(x => x !== t); planResult = null; saveTasks(); updatePlanInfo(); }
+      if (!draft.plan || (t && isFixed(t))) { // a flexible planner project keeps its tracked time: its other blocks may remain
+        const id = draft.plan || draft.id;
         if (timer.run && timer.run.id === id) timer.run = null;
         timer.sessions = timer.sessions.filter(s => s.id !== id);
       }
@@ -744,7 +782,7 @@
     const first = firstStart(src), last = Math.max(...src.slots.map(s => s.end));
     const shift = Math.min(last - first, DAY_END - last);
     const copy = { ...src, id: uid(), onDial: false, slots: src.slots.map(s => ({ start: s.start + shift, end: s.end + shift })) };
-    delete copy.plan; // a copy is a manual project, the planner will not move it
+    delete copy.plan; delete copy.pin; // a copy is a manual project, the planner will not move it
     events.push(copy);
     saveEvents();
     closeEditor();
@@ -1064,6 +1102,9 @@
   const fmtH = min => `${+(min / 60).toFixed(2)}${L().h}`;
   const isFixed = t => t.mode === 'hours';
   const endDate = t => (isFixed(t) ? t.date : t.deadline);
+  // Time ranges of an exact-time task: from-to is the first one, further ones are kept in `more`.
+  const fixedSlots = t => [{ start: t.from, end: t.to }, ...(t.more || [])].filter(s => s.end > s.start).map(s => ({ ...s })).sort((a, b) => a.start - b.start);
+  const slotsTotal = slots => slots.reduce((sum, s) => sum + s.end - s.start, 0);
   const validTasks = () => tasks.filter(t => t.title.trim() && (isFixed(t) ? t.date && t.to > t.from : t.start && t.deadline));
   // Flexible projects need no hour estimate: the load follows from the difficulty,
   // as minutes of work per working day between the start date and the deadline.
@@ -1133,7 +1174,7 @@
       keep = keep.filter(e => e.plan !== t.id); // the task itself says where its block is
       const past = t.date < todayK || (t.date === todayK && t.from < now);
       info[t.id] = { fixed: true, past };
-      out.push({ id: old ? old.id : uid(), title: t.title.trim(), date: t.date, color: t.color, onDial: old ? !!old.onDial : past, plan: t.id, slots: [{ start: t.from, end: t.to }] });
+      out.push({ id: old ? old.id : uid(), title: t.title.trim(), date: t.date, color: t.color, onDial: old ? !!old.onDial : past, plan: t.id, slots: fixedSlots(t) });
     });
     const busy = keep.concat(out);
 
@@ -1240,7 +1281,7 @@
     tasks.forEach(normalizeTask);
     const list = validTasks();
     const todayK = key(new Date()), now = nowMinutes();
-    const left = t => (isFixed(t) ? (t.date > todayK || (t.date === todayK && t.from >= now) ? t.to - t.from : 0) : autoLeft(t));
+    const left = t => (isFixed(t) ? slotsTotal(fixedSlots(t).filter(s => t.date > todayK || (t.date === todayK && s.start >= now))) : autoLeft(t));
     document.querySelectorAll('#planTasks .task-note').forEach(note => {
       const t = tasks.find(x => x.id === note.dataset.id), r = planResult && planResult.byTask[note.dataset.id];
       note.className = 'task-note';
@@ -1249,7 +1290,7 @@
       if (!r) {
         if (!isFixed(t) && t.deadline < todayK) { note.textContent = L().planOver; note.classList.add('bad'); }
       } else if (r.fixed) {
-        note.textContent = `${r.past ? L().planRecorded : L().planFixed} ${shortDate(t.date)} · ${hm(t.from)} – ${hm(t.to)}`;
+        note.textContent = `${r.past ? L().planRecorded : L().planFixed} ${shortDate(t.date)} · ${fixedSlots(t).map(s => `${hm(s.start)} – ${clock(s.end)}`).join(', ')}`;
         note.classList.add('ok');
       } else if (r.nothing) { note.textContent = r.over ? L().planOver : L().planAllDone; if (r.over) note.classList.add('bad'); }
       else if (r.rem + r.late > 0) { note.textContent = L().planShort(fmtH(r.rem + r.late)); note.classList.add('bad'); }
@@ -1319,13 +1360,40 @@
       fields.className = `task-fields ${isFixed(t) ? 'by-hours' : 'by-days'}`;
       if (isFixed(t)) {
         // Short task at an exact time: date + from/to, the duration follows.
-        const from = el('select'), to = el('select'), dur = el('output', 'dur', fmtH(t.to - t.from));
-        from.innerHTML = START_OPTS; to.innerHTML = END_OPTS;
-        from.value = t.from; to.value = t.to;
-        const sync = () => { dur.textContent = fmtH(t.to - t.from); edited(); };
-        from.onchange = () => { t.from = +from.value; if (t.to <= t.from) { t.to = Math.min(t.from + 60, DAY_END); to.value = t.to; } sync(); };
-        to.onchange = () => { t.to = +to.value; if (t.to <= t.from) { t.from = Math.max(t.to - 60, DAY_START); from.value = t.from; } sync(); };
-        fields.replaceChildren(field(L().planDate, dateInput('date')), field(L().planFrom, from), field(L().planTo, to), field(L().planDur, dur));
+        // Further time ranges of the same day (added here or in the calendar) follow as extra rows.
+        const dur = el('output', 'dur');
+        const sync = () => { dur.textContent = fmtH(slotsTotal(fixedSlots(t))); edited(); };
+        const range = (s, a, b) => { // s: an object with the two minute values named a and b
+          const from = el('select'), to = el('select');
+          from.innerHTML = START_OPTS; to.innerHTML = END_OPTS;
+          from.value = s[a]; to.value = s[b];
+          from.setAttribute('aria-label', L().planFrom);
+          to.setAttribute('aria-label', L().planTo);
+          from.onchange = () => { s[a] = +from.value; if (s[b] <= s[a]) { s[b] = Math.min(s[a] + 60, DAY_END); to.value = s[b]; } sync(); };
+          to.onchange = () => { s[b] = +to.value; if (s[b] <= s[a]) { s[a] = Math.max(s[b] - 60, DAY_START); from.value = s[a]; } sync(); };
+          return [from, to];
+        };
+        const [from, to] = range(t, 'from', 'to');
+        const extra = (t.more || []).map(s => {
+          const row = el('div', 'more-row'), rm = el('button', 'rm');
+          rm.type = 'button';
+          rm.title = L().removeTime;
+          rm.setAttribute('aria-label', L().removeTime);
+          rm.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>';
+          rm.onclick = () => { t.more = t.more.filter(x => x !== s); if (!t.more.length) delete t.more; buildFields(); edited(); };
+          row.append(el('span'), ...range(s, 'start', 'end'), rm);
+          return row;
+        });
+        const add = el('button', 'more-add', `+ ${L().addTime}`);
+        add.type = 'button';
+        add.onclick = () => {
+          const last = Math.max(...fixedSlots(t).map(s => s.end)), start = clamp(last + 60, DAY_START, DAY_END - 60);
+          t.more = (t.more || []).concat({ start, end: Math.min(start + 60, DAY_END) });
+          buildFields();
+          edited();
+        };
+        dur.textContent = fmtH(slotsTotal(fixedSlots(t)));
+        fields.replaceChildren(field(L().planDate, dateInput('date')), field(L().planFrom, from), field(L().planTo, to), field(L().planDur, dur), ...extra, add);
       } else {
         // Flexible project: hours spread between the start date and the deadline.
         // The hours are not typed in: they follow from the dates and the difficulty.
@@ -1381,6 +1449,10 @@
     if (!t.date) t.date = todayK;
     if (!(t.from >= DAY_START)) t.from = nextHour;
     if (!(t.to > t.from)) t.to = Math.min(t.from + 60, DAY_END);
+    if (t.more) {
+      t.more = Array.isArray(t.more) ? t.more.filter(s => s && s.start >= DAY_START && s.end > s.start && s.end <= DAY_END) : [];
+      if (!t.more.length) delete t.more;
+    }
     return t;
   }
 
@@ -1445,11 +1517,32 @@
     tasks.forEach(normalizeTask);
     $('planTasks').replaceChildren(...(tasks.length ? tasks.map(taskRow) : [el('p', 'plan-empty', L().planNoTasks)]));
     updatePlanInfo();
+    if (planTab === 'stats') renderStats();
   }
 
   function buildPlanner() {
     const dlg = $('planDlg');
-    $('planCard').onclick = () => { planWeek = weekStart(sel); renderPlanner(); dlg.showModal(); };
+    $('planCard').onclick = () => { planWeek = weekStart(sel); statMonth = new Date(sel.getFullYear(), sel.getMonth(), 1); renderPlanner(); dlg.showModal(); };
+    // Statistics: month arrows, and one tooltip shared by the chart columns, project rows and activity cells.
+    const pane = $('planStats'), tip = el('div', 'st-tip');
+    tip.hidden = true;
+    pane.append(tip);
+    pane.addEventListener('click', ev => {
+      const b = ev.target.closest('[data-step]');
+      if (!b) return;
+      statMonth = new Date(statMonth.getFullYear(), statMonth.getMonth() + +b.dataset.step, 1);
+      renderStats();
+    });
+    pane.addEventListener('pointerover', ev => {
+      const t = ev.target.closest('[data-tip]');
+      if (!t) { tip.hidden = true; return; }
+      tip.innerHTML = t.dataset.tip;
+      tip.hidden = false;
+      const box = pane.getBoundingClientRect(), r = t.getBoundingClientRect();
+      tip.style.left = `${clamp(r.left + r.width / 2 - box.left - tip.offsetWidth / 2, 0, Math.max(0, box.width - tip.offsetWidth))}px`;
+      tip.style.top = `${r.top - box.top - tip.offsetHeight - 8}px`;
+    });
+    pane.addEventListener('pointerleave', () => { tip.hidden = true; });
     $('planClose').onclick = () => dlg.close();
     dlg.addEventListener('click', ev => { if (ev.target === dlg) dlg.close(); }); // click on the backdrop
     document.querySelectorAll('#planTabs button').forEach(b => { b.onclick = () => { planTab = b.dataset.tab; renderPlanner(); }; });
@@ -1482,6 +1575,166 @@
     $('planRun').onclick = runPlanner;
     $('planClear').onclick = clearPlan;
     updatePlanInfo();
+  }
+
+  // ---------- Statistics (third tab of the planner sheet) ----------
+  // Everything is counted from the calendar. A block is "done" once its time has passed or it is
+  // ticked "Task done"; what is still ahead is "planned". Lunch and rest (neutral) are not work.
+  // Blocks are grouped into projects by name, so hand-made and planned blocks of one project add up.
+  let statMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const dm = k => L().dayDate(fromKey(k)).split(', ')[1]; // "Nov 13" / "13 листопада"
+
+  function statData() {
+    const todayK = key(new Date()), now = nowMinutes();
+    const projects = new Map();
+    events.forEach(e => {
+      const title = (e.title || '').trim();
+      if (e.color === 'neutral' || !title) return;
+      const id = title.toLowerCase();
+      let p = projects.get(id);
+      if (!p) projects.set(id, p = { id, title, color: e.color, done: 0, plan: 0, first: e.date, last: e.date, days: new Map() });
+      if (e.date >= p.last) { p.last = e.date; p.color = e.color; p.title = title; } // the latest block names and colours the project
+      if (e.date < p.first) p.first = e.date;
+      let done = 0, plan = 0;
+      e.slots.forEach(s => {
+        const len = s.end - s.start;
+        const d = e.onDial || e.date < todayK ? len : e.date > todayK ? 0 : clamp(now - s.start, 0, len);
+        done += d; plan += len - d;
+      });
+      p.done += done; p.plan += plan;
+      const day = p.days.get(e.date) || { done: 0, plan: 0 };
+      day.done += done; day.plan += plan;
+      p.days.set(e.date, day);
+    });
+    tasks.forEach(t => { const p = projects.get(t.title.trim().toLowerCase()); if (p) { p.task = t; p.color = t.color; } });
+    return [...projects.values()];
+  }
+
+  function renderStats() {
+    const pane = $('planStats'), tip = pane.querySelector('.st-tip');
+    const all = statData();
+    const todayK = key(new Date());
+    const y = statMonth.getFullYear(), m = statMonth.getMonth(), n = new Date(y, m + 1, 0).getDate();
+    const pre = `${y}-${pad(m + 1)}-`;
+    const unit = L().h.trim();
+    const num = min => String(+(min / 60).toFixed(1)).replace('.', lang === 'uk' ? ',' : '.');
+    const hrs = min => `${num(min)} ${unit}`;
+    const tone = p => COLOR[p.color] || PALETTE[0];
+    const sumIn = (p, test) => { let done = 0, plan = 0; p.days.forEach((v, k) => { if (test(k)) { done += v.done; plan += v.plan; } }); return { done, plan }; };
+    const arrow = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="PATH"/></svg>';
+
+    // ----- the chosen month -----
+    const list = all.map(p => ({ p, ...sumIn(p, k => k.startsWith(pre)) })).filter(x => x.done + x.plan > 0)
+      .sort((a, b) => b.done + b.plan - a.done - a.plan || a.p.title.localeCompare(b.p.title));
+    const done = list.reduce((s, x) => s + x.done, 0), ahead = list.reduce((s, x) => s + x.plan, 0);
+    const cols = Array.from({ length: n }, (_, i) => {
+      const k = pre + pad(i + 1);
+      const parts = list.map(x => ({ x, v: x.p.days.get(k) })).filter(q => q.v && q.v.done + q.v.plan > 0);
+      return { k, i, parts, done: parts.reduce((s, q) => s + q.v.done, 0), total: parts.reduce((s, q) => s + q.v.done + q.v.plan, 0) };
+    });
+    const worked = cols.filter(c => c.done > 0).length;
+    // Compared with the previous month over the same days, so a month in progress is not judged against a whole one.
+    const pm = new Date(y, m - 1, 1), ppre = `${pm.getFullYear()}-${pad(pm.getMonth() + 1)}-`;
+    const upTo = todayK.startsWith(pre) ? todayK.slice(8) : '31';
+    const prev = all.reduce((s, p) => s + sumIn(p, k => k.startsWith(ppre) && k.slice(8) <= upTo).done, 0);
+    const delta = done - prev;
+    const vs = prev > 0 && Math.abs(delta) >= 6 ? `<em>${L().stVs(`${delta > 0 ? '▲' : '▼'} ${hrs(Math.abs(delta))}`, pm.getMonth())}</em>` : '';
+    const tile = (cls, label, value, small, extra) => `<div class="st-tile ${cls}"><span>${label}</span><b>${value}${small ? `<small>${small}</small>` : ''}</b>${extra || ''}</div>`;
+
+    let html = `<div class="st-head"><h4>${L().months[m]} ${y}</h4><div class="week-nav">
+      <button type="button" data-step="-1" aria-label="${L().month} −1">${arrow.replace('PATH', 'm15 5-7 7 7 7')}</button>
+      <button type="button" data-step="1" aria-label="${L().month} +1">${arrow.replace('PATH', 'm9 5 7 7-7 7')}</button></div></div>
+      <div class="st-tiles">${tile('accent', L().stWorked, num(done), unit, vs)}${tile('', L().stAhead, num(ahead), unit)}${tile('', L().stCount, list.length)}${tile('', L().stAvg, worked ? num(done / worked) : '0', unit, worked ? `<em>${L().stDays(worked)}</em>` : '')}</div>`;
+
+    if (!list.length) html += `<p class="st-empty">${L().stEmpty}</p>`;
+    else {
+      // Hours by day: one stacked column per day, a project keeps its colour; done is saturated, planned is pale.
+      const CH = 140, top = Math.ceil(Math.max(120, ...cols.map(c => c.total)) / 120) * 120;
+      const column = c => {
+        const seg = (min, bg) => (min > 0 ? `<i style="height:${Math.max(4, min / top * CH).toFixed(1)}px;background-color:${bg}"></i>` : '');
+        const segs = c.parts.map(q => seg(q.v.done, tone(q.x.p).arc) + seg(q.v.plan, tone(q.x.p).soft)).join('');
+        const rows = c.parts.map(q => `<span><i style="background:${tone(q.x.p).arc}"></i>${esc(q.x.p.title)}<em>${hrs(q.v.done + q.v.plan)}</em></span>`).join('');
+        const text = `<b>${esc(shortDate(c.k))}${c.total ? ` · ${hrs(c.total)}` : ''}</b>${rows}`;
+        const cls = `${c.k === todayK ? ' now' : ''}${dayPlan(c.k).on ? '' : ' off'}${c.i === 0 || (c.i + 1) % 5 === 0 ? ' k5' : ''}`;
+        return `<div class="st-col${cls}" data-tip="${esc(text)}"><div class="st-stack">${segs}</div><span>${c.i + 1}</span></div>`;
+      };
+      html += `<div class="st-sec"><div class="st-h"><h4>${L().stByDay}</h4><span class="st-lg"><i></i>${L().stDone}<i class="p"></i>${L().stPlanned}</span></div>
+        <div class="st-chart"><div class="st-y"><span>${top / 60}</span><span>${top / 120}</span><span>0</span></div><div class="st-cols">${cols.map(column).join('')}</div></div></div>`;
+
+      // Projects of the month: bars share one scale, the share of the month's hours beside them.
+      const most = list[0].done + list[0].plan, sum = done + ahead;
+      const row = x => {
+        const c = tone(x.p), total = x.done + x.plan;
+        const text = `<b>${esc(x.p.title)}</b><span>${L().stDone}<em>${hrs(x.done)}</em></span><span>${L().stPlanned}<em>${hrs(x.plan)}</em></span>`;
+        const part = (min, bg) => (min > 0 ? `<i style="width:${(min / most * 100).toFixed(2)}%;background:${bg}"></i>` : '');
+        return `<div class="st-row" data-tip="${esc(text)}"><i class="st-dot" style="background:${c.arc}"></i><span class="st-name">${esc(x.p.title)}</span>
+          <span class="st-val">${Math.round(total / sum * 100)}% · <b>${hrs(total)}</b></span><div class="st-bar">${part(x.done, c.arc)}${part(x.plan, c.soft)}</div></div>`;
+      };
+      html += `<div class="st-sec"><div class="st-h"><h4>${L().stMonth}</h4><small>${hrs(sum)}</small></div>${list.map(row).join('')}</div>`;
+    }
+
+    // ----- all projects ever saved in the calendar -----
+    if (!all.length) html += `<p class="st-empty">${L().stNoData}</p>`;
+    else {
+      const card = p => {
+        const c = tone(p), total = p.done + p.plan, t = p.task;
+        const end = t ? endDate(t) : p.last;
+        const left = Math.round((fromKey(end) - fromKey(todayK)) / 864e5);
+        const state = t ? (left >= 0 ? `${L().stInPlan} ${dm(end)} · ${L().stDaysLeft(left)}` : L().planOver)
+          : p.plan > 0 ? `${L().stUntil} ${dm(p.last)}` : `${L().stFinished} ${dm(p.last)}`;
+        const period = p.first === p.last ? dm(p.first) : `${dm(p.first)} – ${dm(p.last)}`;
+        const value = p.plan > 0 ? `<b>${num(p.done)}</b> ${L().stOf} ${hrs(total)}` : `<b>${num(total)}</b> ${unit}`;
+        return `<div class="st-proj"><i class="st-sw" style="background:${c.soft}"></i>
+          <div class="st-main"><b>${esc(p.title)}</b><small>${period} · ${L().stDays(p.days.size)}</small><small>${state}</small></div>
+          <div class="st-num">${value}</div><div class="st-bar">${p.done > 0 ? `<i style="width:${(p.done / total * 100).toFixed(2)}%;background:${c.arc}"></i>` : ''}</div></div>`;
+      };
+      const order = all.slice().sort((a, b) => !!b.task - !!a.task || (a.last < b.last ? 1 : a.last > b.last ? -1 : 0) || b.done + b.plan - a.done - a.plan);
+      html += `<div class="st-sec"><div class="st-h"><h4>${L().stAll}</h4><small>${order.length} · ${hrs(all.reduce((s, p) => s + p.done + p.plan, 0))}</small></div>${order.map(card).join('')}</div>`;
+
+      // ----- activity: done hours of every day over the last 26 weeks, one hue from light to dark -----
+      const dayDone = new Map();
+      all.forEach(p => p.days.forEach((v, k) => { if (v.done > 0) dayDone.set(k, (dayDone.get(k) || 0) + v.done); }));
+      const WEEKS = 26, first = addDays(weekStart(new Date()), -(WEEKS - 1) * 7);
+      let peak = 0;
+      for (let i = 0; i < WEEKS * 7; i++) peak = Math.max(peak, dayDone.get(key(addDays(first, i))) || 0);
+      let cells = '', lastMonth = -1, lastLabel = -9;
+      for (let w = 0; w < WEEKS; w++) {
+        const mon = addDays(first, w * 7);
+        if (mon.getMonth() !== lastMonth && w - lastLabel > 2 && w < WEEKS - 1) {
+          if (lastMonth !== -1 || mon.getDate() <= 7) { cells += `<span class="st-mo" style="grid-column:${w + 2} / span 3;grid-row:1">${L().months[mon.getMonth()].slice(0, 3)}</span>`; lastLabel = w; }
+        }
+        lastMonth = mon.getMonth();
+        for (let d = 0; d < 7; d++) {
+          const k = key(addDays(mon, d)), v = dayDone.get(k) || 0;
+          const level = v && peak ? Math.min(4, Math.ceil(v / peak * 4)) : 0;
+          cells += `<i class="l${level}${k > todayK ? ' fut' : ''}${k === todayK ? ' now' : ''}" style="grid-column:${w + 2};grid-row:${d + 2}" data-tip="${esc(`<b>${esc(shortDate(k))}</b><span>${v ? hrs(v) : '—'}</span>`)}"></i>`;
+        }
+      }
+      [0, 2, 4].forEach(d => { cells += `<span class="st-wd" style="grid-column:1;grid-row:${d + 2}">${L().daysShort[d]}</span>`; });
+
+      // A few facts drawn from the same days.
+      let best = null, streak = 0;
+      const byDow = Array.from({ length: 7 }, () => ({ sum: 0, n: 0 }));
+      dayDone.forEach((v, k) => {
+        if (!best || v > best.v) best = { k, v };
+        const x = byDow[dow(fromKey(k))];
+        x.sum += v; x.n++;
+      });
+      for (let d = new Date(), i = 0; i < 400; d = addDays(d, -1), i++) {
+        const k = key(d);
+        if (dayDone.get(k) > 0) streak++;
+        else if (i > 0 && dayPlan(k).on) break; // days off do not break the run; today may not have started yet
+      }
+      const top = byDow.map((x, i) => ({ i, avg: x.n ? x.sum / x.n : 0 })).sort((a, b) => b.avg - a.avg)[0];
+      const fact = (label, value, note) => `<div class="st-fact"><span>${label}</span><b>${value}</b><small>${note}</small></div>`;
+      html += `<div class="st-sec"><div class="st-h"><h4>${L().stActivity}</h4><small>${L().stWeeks}</small></div><div class="st-heat">${cells}</div>
+        <div class="st-scale">${L().stLess}<i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i>${L().stMore}</div>
+        <div class="st-facts">${fact(L().stBest, best ? esc(shortDate(best.k)) : '—', best ? hrs(best.v) : '')}${fact(L().stStreak, streak, '')}${fact(L().stWeekday, top.avg ? L().days[top.i] : '—', top.avg ? `≈ ${hrs(top.avg)}` : '')}</div></div>`;
+    }
+
+    pane.innerHTML = html;
+    if (tip) { tip.hidden = true; pane.append(tip); }
   }
 
   // ---------- Cloud sync (Firebase: Google sign-in + Firestore) ----------
