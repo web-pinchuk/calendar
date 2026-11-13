@@ -173,6 +173,20 @@
       <h3 data-i18n="accTitle">Account</h3>
       <p class="sync-help" id="accHelp"></p>
       <p class="sync-status" id="syncStatus" role="status"></p>
+      <div class="access" id="access" hidden>
+        <h4 data-i18n="accShare">View access</h4>
+        <p class="sync-help" data-i18n="accShareHelp"></p>
+        <div class="acc-line">
+          <input id="accMail" type="email" data-i18n-ph="accMailPh" placeholder="name@gmail.com" autocomplete="off" aria-label="Google email">
+          <button type="button" id="accAdd" data-i18n="accAdd">Add</button>
+        </div>
+        <div id="accList"></div>
+        <div class="acc-line">
+          <input id="accLink" type="text" readonly aria-label="Link">
+          <button type="button" id="accCopy" data-i18n="accCopy">Copy link</button>
+        </div>
+        <p class="sync-status" id="accMsg" role="status"></p>
+      </div>
       <div class="sync-actions">
         <button type="button" id="accOut" data-i18n="accOut" hidden>Sign out</button>
         <button type="button" id="syncClose" data-i18n="close">Close</button>
@@ -180,6 +194,15 @@
       </div>
     </form>
   </dialog>
+
+  <div class="gate" id="gate" hidden>
+    <div class="gate-card">
+      <h2 id="gateTitle"></h2>
+      <p id="gateText" role="status"></p>
+      <button type="button" class="gate-main" id="gateIn" hidden></button>
+      <button type="button" id="gateOut" hidden></button>
+    </div>
+  </div>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <script src="firebase-config.js"></script>
