@@ -1838,7 +1838,7 @@
       const row = el('div', `person${online ? ' online' : ''}`);
       const text = el('div', 'person-text');
       const seen = online ? L().pOnline : v && v.seen ? seenText(v.seen) : L().pNever;
-      text.append(el('b', '', mail), el('small', '', members.includes(mail) ? ` · ${L().ownTag}` : seen));
+      text.append(el('b', '', mail), el('small', '', members.includes(mail) ? `${seen} · ${L().ownTag}` : seen));
       text.title = mail;
       const rm = el('button', 'person-rm');
       rm.type = 'button';
@@ -1957,7 +1957,7 @@
       } catch (err) { accMsg(`${L().invFailed}${err && err.message ? ': ' + err.message : ''}`); }
       return;
     }
-    const q = new URLSearchParams({ view: 'cm', fs: '1', authuser: user.email, to: mail, su: L().invSubject, body: L().invBody(shareLink(), mail, user.displayName || user.email, members.includes(mail) ? `${location.pathname}` : '') });
+    const q = new URLSearchParams({ view: 'cm', fs: '1', authuser: user.email, to: mail, su: L().invSubject, body: L().invBody(shareLink(), mail, user.displayName || user.email, members.includes(mail) ? `${location.origin}${location.pathname}` : '') });
     window.open(`https://mail.google.com/mail/?${q}`, '_blank', 'noopener');
   }
 
