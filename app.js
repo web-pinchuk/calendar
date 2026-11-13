@@ -124,6 +124,68 @@
       accNoConfig: 'Вхід у хмару ще не налаштовано.', accErrLoad: 'не вдалося завантажити хмарну бібліотеку',
       accIsOff: 'Ви не ввійшли', accIsOk: 'Синхронізовано', accIsBusy: 'Синхронізація…', accIsError: 'Помилка синхронізації',
     },
+    ru: {
+      months: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
+      monthsGen: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
+      days: ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'],
+      daysShort: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+      longDate: d => `${d.getDate()} ${T.ru.monthsGen[d.getMonth()]} ${d.getFullYear()}`,
+      dayDate: d => `${T.ru.days[dow(d)]}, ${d.getDate()} ${T.ru.monthsGen[d.getMonth()]}`,
+      month: 'Месяц', week: 'Неделя', day: 'День', today: 'Сегодня',
+      projects: 'Задачи на день', hours24: '24 часа', start: 'СТАРТ', stop: 'СТОП',
+      startTimer: 'Запустить таймер', stopTimer: 'Остановить таймер',
+      lunch: 'Обед', everyDay: 'Каждый день', color: 'Цвет проекта',
+      titlePh: 'Название проекта', addToDial: 'Задача выполнена', planRecorded: 'Записано как выполненное:', addTime: 'Добавить время', removeTime: 'Убрать это время',
+      add: 'Добавить событие', save: 'Сохранить', del: 'Удалить', cancel: 'Отмена', dup: 'Дублировать', total: 'Часов',
+      more: n => `ещё ${n}`,
+      badTime: 'Проверьте время', badTimeBody: 'Конец должен быть позже начала.',
+      notifNone: 'Уведомления недоступны', notifNoneBody: 'Этот браузер не поддерживает системные уведомления.',
+      notifOff: 'Уведомления выключены', notifBlocked: 'Уведомления заблокированы', notifBlockedBody: 'Разрешите уведомления для этого сайта в настройках браузера.',
+      notifOn: 'Уведомления включены', notifOnBody: m => `Напомню за ${m} мин до начала каждого события.`,
+      inMin: m => `Через ${m} мин`, startsNow: 'Начинается сейчас', bell: 'Уведомления о событиях',
+      appName: 'Аккаунт',
+      planner: 'Планировщик', planEmpty: 'Распланировать проекты',
+      planCount: n => n + (n % 10 === 1 && n % 100 !== 11 ? ' проект' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? ' проекта' : ' проектов'),
+      planHelp: 'Дни: планировщик ставит работу над проектом на каждый рабочий день между началом и дедлайном: Легко 1 ч в день, Средне 2, Сложно 3. Часы: короткая задача на точное время.',
+      planOver: 'Дедлайн уже прошёл',
+      planStart: 'Начало', planDate: 'Дата', planDur: 'Длительность', planMode: 'Режим планирования', modeDays: 'Дни', modeHours: 'Часы',
+      planLunch: 'Обеденный перерыв', planFixed: 'Запланировано', planPast: 'Это время уже прошло',
+      planWork: 'Рабочее время', planFrom: 'С', planTo: 'До', planBlock: 'Блок работы', planGap: 'Перерыв', noBreak: 'Без перерыва', h: ' ч', min: ' мин',
+      planProjectsTitle: 'Проекты', planName: 'Проект', planHours: 'Часы', planDeadline: 'Дедлайн', planDiff: 'Сложность', diff: ['Легко', 'Средне', 'Сложно'],
+      planAddTask: 'Добавить проект', removeTask: 'Убрать проект', planClear: 'Очистить план', planRun: 'Сохранить', planSaved: 'План сохранён',
+      planStats: 'Статистика', stWorked: 'Отработано', stAhead: 'Ещё запланировано', stCount: 'Проектов', stAvg: 'За рабочий день',
+      stVs: (d, m) => `${d} против ${T.ru.monthsGen[m]}`, stByDay: 'Часы по дням', stMonth: 'Проекты за месяц', stAll: 'Все проекты',
+      stActivity: 'Активность', stWeeks: 'последние 26 недель', stEmpty: 'За этот месяц в календаре пока ничего нет.', stNoData: 'Здесь будут собираться проекты из календаря.',
+      stDone: 'сделано', stPlanned: 'запланировано', stInPlan: 'В плане · дедлайн', stFinished: 'Завершено', stUntil: 'До', stOf: 'из',
+      stBest: 'Самый загруженный день', stStreak: 'Рабочих дней подряд', stWeekday: 'Самый сильный день недели', stLess: 'Меньше', stMore: 'Больше',
+      stDaysLeft: n => (n === 0 ? 'сегодня' : 'ещё ' + T.ru.stDays(n)),
+      stDays: n => n + (n % 10 === 1 && n % 100 !== 11 ? ' день' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? ' дня' : ' дней'),
+      planSchedule: 'Рабочие часы', planUsual: 'Обычный график', planBreaks: 'Блоки и перерывы', planReset: 'Вернуть обычный график',
+      planNoTasks: 'Проектов пока нет. Добавьте первый.', planNone: 'Сначала добавьте проект с названием и датами.',
+      planNeed: 'Осталось', planFree: 'свободно до последнего дедлайна', planDone: 'сделано', planLeft: 'осталось',
+      planFits: 'Помещается', planEnds: 'завершение', planAllDone: 'Больше нечего планировать',
+      planShort: h => 'Не хватает времени: ' + h + ' не помещается до дедлайна',
+      planMade: (b, d) => 'Запланировано блоков: ' + b + ', дней: ' + d, syncLocal: 'Только это устройство',
+      accTitle: 'Аккаунт', accIn: 'Войти через Google', accOut: 'Выйти', accAs: 'Вы вошли как', close: 'Закрыть',
+      accHelp: 'Войдите через Google-аккаунт, чтобы календарь хранился в облаке и открывался на любом устройстве.',
+      accShare: 'Доступ для просмотра', accShareHelp: 'Люди с этими Google-почтами могут открыть ваш календарь по ссылке. Только просмотр.',
+      accMailPh: 'name@gmail.com', accAdd: 'Добавить', accCopy: 'Скопировать ссылку', accCopied: 'Ссылка скопирована', accRemove: 'Забрать доступ',
+      accNone: 'Доступа пока ни у кого нет.', accBadMail: 'Введите полный адрес почты', accHas: 'Эта почта уже есть в списке',
+      accOwn: 'Это ваша собственная почта', accSaved: 'Доступ сохранён', accGone: 'Доступ забран',
+      invSending: 'Отправляю приглашение…', invSent: m => 'Приглашение отправлено на ' + m, invFailed: 'Доступ сохранён, но приглашение не отправлено',
+      pOnline: 'Сейчас онлайн', pOffline: 'Офлайн', pNever: 'Ещё не открывали', pSeen: when => 'Последний визит: ' + when,
+      ownOn: 'Свой календарь: разрешён', ownOff: 'Разрешить свой календарь', ownTag: 'свой календарь', ownGranted: 'Свой календарь разрешён', ownRevoked: 'Свой календарь выключен',
+      accNoOwn: 'Для этого аккаунта нет облачного календаря: только на этом устройстве', menuMine: 'Мой календарь',
+      pShowLog: 'Показать визиты', pWeek: 'Последние 7 дней', pVisits: n => n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'визит' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'визита' : 'визитов'), pNoLog: 'За последние 7 дней визитов не было.', pNow: 'сейчас', hShort: 'ч',
+      menuLang: 'Язык', menu: 'Меню', menuNotif: 'Уведомления', menuAccess: 'Добавить человека', on: 'Вкл.', off: 'Выкл.',
+      accInvite: 'Отправить приглашение', invSubject: 'Доступ к моему рабочему календарю',
+      invBody: (link, mail, name, mine) => `Здравствуйте!\n\nЯ дал вам доступ на просмотр моего рабочего календаря.\n\nОткрыть: ${link}\nВойдите через этот Google-аккаунт: ${mail}${mine ? '\n\nВы также можете вести свой календарь здесь: ' + mine : ''}\n\n${name}`,
+      viewOnly: 'Только просмотр', gateTitle: 'Общий календарь', gateSignIn: 'Войдите через Google-аккаунт, которому дали доступ.',
+      gateLoading: 'Открываю календарь…', gateDenied: m => 'Нет доступа для ' + m + '. Попросите владельца добавить эту почту.',
+      gateError: 'Не удалось открыть календарь. Попробуйте позже.', gateOther: 'Другой аккаунт',
+      accNoConfig: 'Вход в облако ещё не настроен.', accErrLoad: 'не удалось загрузить облачную библиотеку',
+      accIsOff: 'Вы не вошли', accIsOk: 'Синхронизировано', accIsBusy: 'Синхронизация…', accIsError: 'Ошибка синхронизации',
+    },
   };
 
   // Project colours: `soft` fills the calendar block, `arc` draws the dial line.
@@ -180,7 +242,8 @@
 
   // ---------- State ----------
   // A project (event) lives on one date and has one or more time slots: { start, end } in minutes.
-  let lang = load('cd.lang', 'en') === 'uk' ? 'uk' : 'en';
+  let lang = load('cd.lang', 'en'); // English unless another language was chosen in the menu
+  if (!Object.prototype.hasOwnProperty.call(T, lang)) lang = 'en';
   const L = () => T[lang];
 
   let view = load('cd.view', 'week');
@@ -1679,7 +1742,7 @@
     const y = statMonth.getFullYear(), m = statMonth.getMonth(), n = new Date(y, m + 1, 0).getDate();
     const pre = `${y}-${pad(m + 1)}-`;
     const unit = L().h.trim();
-    const num = min => String(+(min / 60).toFixed(1)).replace('.', lang === 'uk' ? ',' : '.');
+    const num = min => String(+(min / 60).toFixed(1)).replace('.', lang === 'en' ? '.' : ',');
     const hrs = min => `${num(min)} ${unit}`;
     const tone = p => COLOR[p.color] || PALETTE[0];
     const sumIn = (p, test) => { let done = 0, plan = 0; p.days.forEach((v, k) => { if (test(k)) { done += v.done; plan += v.plan; } }); return { done, plan }; };
