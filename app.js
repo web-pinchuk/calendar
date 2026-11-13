@@ -21,7 +21,17 @@
       notifOff: 'Notifications off', notifBlocked: 'Notifications blocked', notifBlockedBody: 'Allow notifications for this site in your browser settings.',
       notifOn: 'Notifications on', notifOnBody: m => `I will remind you ${m} min before each event.`,
       inMin: m => `In ${m} min`, startsNow: 'Starting now', bell: 'Event notifications',
-      appName: 'Account', syncLocal: 'This device only',
+      appName: 'Account',
+      planner: 'Planner', planEmpty: 'Plan your projects', planCount: n => (n === 1 ? '1 project' : n + ' projects'),
+      planHelp: 'List your projects with hours and deadlines. The planner fits them into your free time: nearest deadlines first, hard work earlier in the day.',
+      planWork: 'Working time', planFrom: 'From', planTo: 'To', planBlock: 'Focus block', planGap: 'Break', noBreak: 'No break', h: 'h', min: ' min',
+      planProjectsTitle: 'Projects', planName: 'Project', planHours: 'Hours', planDeadline: 'Deadline', planDiff: 'Difficulty', diff: ['Easy', 'Medium', 'Hard'],
+      planAddTask: 'Add project', removeTask: 'Remove project', planClear: 'Clear plan', planRun: 'Plan',
+      planNoTasks: 'No projects yet. Add the first one.', planNone: 'Add a project with a name, hours and a deadline first.',
+      planNeed: 'To do', planFree: 'free before the last deadline', planDone: 'done', planLeft: 'left',
+      planFits: 'Fits', planEnds: 'finishes', planAllDone: 'All hours are already done',
+      planShort: h => 'Not enough time: ' + h + ' will not fit before the deadline',
+      planMade: (b, d) => 'Planned ' + b + (b === 1 ? ' block' : ' blocks') + ' over ' + d + (d === 1 ? ' day' : ' days'), syncLocal: 'This device only',
       accTitle: 'Account', accIn: 'Sign in with Google', accOut: 'Sign out', accAs: 'Signed in as', close: 'Close',
       accHelp: 'Sign in with your Google account to keep the calendar in the cloud and open it on any device.',
       accNoConfig: 'Cloud sign-in is not set up yet.', accErrLoad: 'could not load the cloud library',
@@ -46,7 +56,18 @@
       notifOff: 'Сповіщення вимкнено', notifBlocked: 'Сповіщення заблоковано', notifBlockedBody: 'Дозвольте сповіщення для цього сайту в налаштуваннях браузера.',
       notifOn: 'Сповіщення увімкнено', notifOnBody: m => `Нагадаю за ${m} хв до початку кожної події.`,
       inMin: m => `Через ${m} хв`, startsNow: 'Починається зараз', bell: 'Сповіщення про події',
-      appName: 'Акаунт', syncLocal: 'Лише цей пристрій',
+      appName: 'Акаунт',
+      planner: 'Планувальник', planEmpty: 'Розпланувати проєкти',
+      planCount: n => n + (n % 10 === 1 && n % 100 !== 11 ? ' проєкт' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? ' проєкти' : ' проєктів'),
+      planHelp: 'Додайте проєкти з годинами й дедлайнами. Планувальник розкладе їх у вільний час: спершу найближчі дедлайни, складне на початок дня.',
+      planWork: 'Робочий час', planFrom: 'З', planTo: 'До', planBlock: 'Блок роботи', planGap: 'Перерва', noBreak: 'Без перерви', h: ' год', min: ' хв',
+      planProjectsTitle: 'Проєкти', planName: 'Проєкт', planHours: 'Години', planDeadline: 'Дедлайн', planDiff: 'Складність', diff: ['Легко', 'Середньо', 'Важко'],
+      planAddTask: 'Додати проєкт', removeTask: 'Прибрати проєкт', planClear: 'Очистити план', planRun: 'Розпланувати',
+      planNoTasks: 'Проєктів ще немає. Додайте перший.', planNone: 'Спершу додайте проєкт з назвою, годинами й дедлайном.',
+      planNeed: 'Залишилось', planFree: 'вільно до останнього дедлайну', planDone: 'зроблено', planLeft: 'залишилось',
+      planFits: 'Вміщається', planEnds: 'завершення', planAllDone: 'Усі години вже відпрацьовано',
+      planShort: h => 'Не вистачає часу: ' + h + ' не вміщається до дедлайну',
+      planMade: (b, d) => 'Заплановано блоків: ' + b + ', днів: ' + d, syncLocal: 'Лише цей пристрій',
       accTitle: 'Акаунт', accIn: 'Увійти через Google', accOut: 'Вийти', accAs: 'Ви ввійшли як', close: 'Закрити',
       accHelp: 'Увійдіть через Google-акаунт, щоб календар зберігався в хмарі й відкривався на будь-якому пристрої.',
       accNoConfig: 'Вхід у хмару ще не налаштовано.', accErrLoad: 'не вдалося завантажити хмарну бібліотеку',
@@ -90,7 +111,7 @@
   const load = (k, fallback) => {
     try { const v = JSON.parse(localStorage.getItem(k)); return v ?? fallback; } catch { return fallback; }
   };
-  const SYNCED_KEYS = ['cd.events', 'cd.lunch', 'cd.timer3'];
+  const SYNCED_KEYS = ['cd.events', 'cd.lunch', 'cd.timer3', 'cd.tasks', 'cd.planCfg'];
   let syncQuiet = true; // true while starting up or applying cloud data: those saves are not local edits
   const save = (k, v) => {
     try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ }
@@ -183,8 +204,6 @@
   // ---------- Sidebar: header + mini calendar ----------
   function renderHead() {
     const now = new Date();
-    $('headDay').textContent = L().days[dow(now)];
-    $('headDate').textContent = L().longDate(now);
     $('bell').classList.toggle('on', notifOn());
   }
 
@@ -602,7 +621,7 @@
       closeEditor();
       render();
     } else {
-      const e = { id: draft.id || uid(), title, date: $('fDate').value, slots, onDial, color: draft.color };
+      const e = { id: draft.id || uid(), title, date: $('fDate').value, slots, onDial, color: draft.color, ...(draft.plan ? { plan: draft.plan } : {}) };
       if (!e.date) return;
       events = events.filter(x => x.id !== e.id).concat(e);
       saveEvents();
@@ -632,6 +651,7 @@
     const first = firstStart(src), last = Math.max(...src.slots.map(s => s.end));
     const shift = Math.min(last - first, DAY_END - last);
     const copy = { ...src, id: uid(), onDial: false, slots: src.slots.map(s => ({ start: s.start + shift, end: s.end + shift })) };
+    delete copy.plan; // a copy is a manual project, the planner will not move it
     events.push(copy);
     saveEvents();
     closeEditor();
@@ -690,7 +710,7 @@
     let changed = false;
     Object.keys(sent).forEach(id => { if (sent[id] !== k) { delete sent[id]; changed = true; } });
     blocksOn(k).forEach(blk => {
-      const left = blk.start - nowMin, id = `${blk.e.id}@${blk.start}`;
+      const left = blk.start - nowMin, id = `${blk.e.plan || blk.e.id}@${blk.start}`; // re-planning keeps the same reminder
       if (left < 0 || left > REMIND_MIN || sent[id]) return;
       sent[id] = k;
       changed = true;
@@ -857,6 +877,273 @@
   catch { kyivFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }); }
   const renderClock = () => { $('clock').textContent = kyivFmt.format(new Date()); };
 
+  // ---------- Planner ----------
+  // The user lists projects (hours, deadline, difficulty); the planner turns them into calendar
+  // blocks inside the free working time. Rules: nearest deadline first, at most two focus blocks
+  // of one project per day while the deadlines allow it, harder work earlier in the day.
+  // Planner blocks are ordinary projects tagged with `plan: <task id>`. Blocks that have already
+  // started stay in the calendar and count as done hours; everything later is re-planned.
+  let tasks = load('cd.tasks', []) || [];
+  let planCfg = { days: [1, 1, 1, 1, 1, 0, 0], from: 540, to: 1080, block: 120, gap: 15, ...load('cd.planCfg', {}) };
+  let planResult = null; // outcome of the last run: { byTask: { id: { rem, late, last, nothing } }, blocks, days }
+  const saveTasks = () => save('cd.tasks', tasks);
+  const savePlanCfg = () => save('cd.planCfg', planCfg);
+  const nowMinutes = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
+  const fmtH = min => `${+(min / 60).toFixed(2)}${L().h}`;
+  const validTasks = () => tasks.filter(t => t.title.trim() && t.hours > 0 && t.deadline);
+
+  function splitPlanned() {
+    const today = key(new Date()), now = nowMinutes();
+    const kept = [], done = {};
+    events.forEach(e => {
+      if (!e.plan) { kept.push(e); return; }
+      const slots = e.date > today ? [] : e.date === today ? e.slots.filter(s => s.start < now) : e.slots;
+      if (!slots.length) return;
+      kept.push({ ...e, slots });
+      done[e.plan] = (done[e.plan] || 0) + slots.reduce((sum, s) => sum + s.end - s.start, 0);
+    });
+    return { kept, done };
+  }
+
+  // Free working intervals of a day: working hours minus fixed projects (with a break around them).
+  function freeIntervals(k, fixed) {
+    if (!planCfg.days[dow(fromKey(k))]) return [];
+    let from = Math.max(planCfg.from, DAY_START);
+    const to = Math.min(planCfg.to, DAY_END);
+    if (k === key(new Date())) from = Math.max(from, Math.ceil((nowMinutes() + 1) / 15) * 15);
+    let free = from < to ? [[from, to]] : [];
+    fixed.forEach(e => {
+      if (e.date !== k) return;
+      e.slots.forEach(s => {
+        const a = s.start - planCfg.gap, b = s.end + planCfg.gap;
+        free = free.flatMap(([x, y]) => (b <= x || a >= y ? [[x, y]] : [[x, Math.min(a, y)], [Math.max(b, x), y]].filter(([p, q]) => q > p)));
+      });
+    });
+    return free.filter(([x, y]) => y - x >= 30);
+  }
+
+  function schedule(perDayCap) {
+    const { kept, done } = splitPlanned();
+    const today = fromKey(key(new Date()));
+    const byDeadline = (a, b) => a.t.deadline.localeCompare(b.t.deadline) || b.t.diff - a.t.diff;
+    const list = validTasks().map(t => {
+      const rem = Math.max(0, Math.round((t.hours * 60 - (done[t.id] || 0)) / 15) * 15);
+      return { t, rem, late: 0, last: null, nothing: rem === 0 };
+    }).sort(byDeadline);
+    const lastDeadline = list.reduce((m, x) => (x.t.deadline > m ? x.t.deadline : m), key(today));
+    const horizon = addDays(fromKey(lastDeadline), 21);
+    const out = [];
+
+    for (let d = today, n = 0; d <= horizon && n < 180 && list.some(x => x.rem > 0); d = addDays(d, 1), n++) {
+      const k = key(d), free = freeIntervals(k, kept);
+      let capacity = free.reduce((sum, [x, y]) => sum + y - x, 0);
+      if (!capacity) continue;
+
+      // 1. Choose today's focus blocks: nearest deadline first, limited per project.
+      const count = new Map(), chunks = [];
+      // Projects whose deadline has already passed must not starve the ones that can still make it.
+      const open = c => c.rem > 0 && (count.get(c) || 0) < perDayCap;
+      for (;;) {
+        const pause = chunks.length ? planCfg.gap : 0, room = capacity - pause;
+        if (room < 15) break;
+        const x = list.find(c => open(c) && c.t.deadline >= k) || list.find(open);
+        if (!x) break;
+        let len = Math.min(planCfg.block, x.rem, room);
+        const tail = x.rem - len;
+        if (tail > 0 && tail < 30 && tail <= pause) len += tail; // skip the break rather than leave a 15-minute stub
+        chunks.push({ x, len });
+        x.rem -= len;
+        capacity -= len + pause;
+        count.set(x, (count.get(x) || 0) + 1);
+      }
+      // 2. Order them: harder work earlier in the day.
+      chunks.sort((a, b) => b.x.t.diff - a.x.t.diff || byDeadline(a.x, b.x));
+      // 3. Lay them into the free intervals with breaks in between.
+      const slotsOf = new Map();
+      let i = 0, pos = free[0][0];
+      chunks.forEach(c => {
+        let left = c.len;
+        while (left > 0 && i < free.length) {
+          let room = free[i][1] - pos;
+          const lack = left - room; // a little short: start earlier and shorten the break before this block
+          if (lack > 0 && lack <= planCfg.gap && pos - lack >= free[i][0]) { pos -= lack; room = left; }
+          if (room < Math.min(left, 30)) { i++; if (i < free.length) pos = free[i][0]; continue; }
+          const take = Math.min(left, room);
+          const slots = slotsOf.get(c.x) || [];
+          const prev = slots[slots.length - 1];
+          if (prev && prev.end === pos) prev.end += take; else slots.push({ start: pos, end: pos + take });
+          slotsOf.set(c.x, slots);
+          left -= take;
+          pos += take + planCfg.gap;
+        }
+        c.x.rem += left; // did not fit today: goes to the following days
+      });
+      slotsOf.forEach((slots, x) => {
+        out.push({ id: uid(), title: x.t.title.trim(), date: k, color: x.t.color, onDial: false, plan: x.t.id, slots });
+        if (k > x.t.deadline) x.late += slots.reduce((sum, s) => sum + s.end - s.start, 0);
+        x.last = k;
+      });
+    }
+    return { kept, out, list, score: list.reduce((sum, x) => sum + x.late + x.rem, 0) };
+  }
+
+  function runPlanner() {
+    if (!validTasks().length) { toast(L().planner, L().planNone); return; }
+    let r = schedule(2); // spread projects over days...
+    if (r.score > 0) { const tight = schedule(Infinity); if (tight.score < r.score) r = tight; } // ...unless deadlines are tight
+    events = r.kept.concat(r.out);
+    saveEvents();
+    planResult = {
+      byTask: Object.fromEntries(r.list.map(x => [x.t.id, { rem: x.rem, late: x.late, last: x.last, nothing: x.nothing }])),
+      blocks: r.out.reduce((sum, e) => sum + e.slots.length, 0),
+      days: new Set(r.out.map(e => e.date)).size,
+    };
+    render();
+    renderTimer();
+    checkReminders();
+    updatePlanInfo();
+  }
+
+  function clearPlan() {
+    events = splitPlanned().kept;
+    saveEvents();
+    planResult = null;
+    render();
+    renderTimer();
+    updatePlanInfo();
+  }
+
+  const shortDate = k => { const d = fromKey(k); return `${L().daysShort[dow(d)]}, ${L().dayDate(d).split(', ')[1]}`; };
+
+  // Notes under each project, the summary line and the sidebar card.
+  function updatePlanInfo() {
+    const { kept, done } = splitPlanned();
+    const list = validTasks();
+    const left = t => Math.max(0, t.hours * 60 - (done[t.id] || 0));
+    document.querySelectorAll('#planTasks .task-note').forEach(note => {
+      const t = tasks.find(x => x.id === note.dataset.id), r = planResult && planResult.byTask[note.dataset.id];
+      note.className = 'task-note';
+      if (!t) { note.textContent = ''; return; }
+      const progress = done[t.id] ? `${fmtH(done[t.id])} ${L().planDone} · ${fmtH(left(t))} ${L().planLeft}` : '';
+      if (!r) note.textContent = progress;
+      else if (r.nothing) note.textContent = L().planAllDone;
+      else if (r.rem + r.late > 0) { note.textContent = L().planShort(fmtH(r.rem + r.late)); note.classList.add('bad'); }
+      else { note.textContent = `${L().planFits} · ${L().planEnds} ${shortDate(r.last)}`; note.classList.add('ok'); }
+    });
+    const need = list.reduce((sum, t) => sum + left(t), 0);
+    const lastDeadline = list.reduce((m, t) => (t.deadline > m ? t.deadline : m), '');
+    let free = 0;
+    if (lastDeadline) {
+      for (let d = fromKey(key(new Date())), n = 0; key(d) <= lastDeadline && n < 400; d = addDays(d, 1), n++) {
+        free += freeIntervals(key(d), kept).reduce((sum, [x, y]) => sum + y - x, 0);
+      }
+    }
+    const sum = $('planSum');
+    sum.replaceChildren();
+    if (list.length) {
+      sum.append(`${L().planNeed} `, el('b', '', fmtH(need)), ` · ${L().planFree} `, el('b', '', fmtH(free)));
+      if (planResult) sum.append(el('br'), L().planMade(planResult.blocks, planResult.days));
+    }
+    $('planSub').textContent = list.length ? `${L().planCount(list.length)} · ${fmtH(need)}` : L().planEmpty;
+  }
+
+  function taskRow(t) {
+    const row = el('div', 'task');
+    const edited = () => { planResult = null; saveTasks(); updatePlanInfo(); };
+    const sw = el('button', 'swatch t-sw');
+    sw.type = 'button';
+    sw.title = L().color;
+    sw.setAttribute('aria-label', L().color);
+    sw.style.background = colorOf(t).soft;
+    sw.onclick = () => { // next colour of the palette
+      t.color = PALETTE[(PALETTE.findIndex(c => c.id === t.color) + 1) % PALETTE.length].id;
+      sw.style.background = colorOf(t).soft;
+      edited();
+    };
+    const name = el('input', 't-name');
+    name.type = 'text'; name.maxLength = 80; name.value = t.title; name.placeholder = L().titlePh;
+    name.setAttribute('aria-label', L().planName);
+    name.oninput = () => { t.title = name.value; edited(); };
+    const hrs = el('input', 't-hrs');
+    hrs.type = 'number'; hrs.min = '0.5'; hrs.max = '500'; hrs.step = '0.5'; hrs.value = t.hours;
+    hrs.setAttribute('aria-label', L().planHours);
+    hrs.oninput = () => { t.hours = clamp(parseFloat(hrs.value) || 0, 0, 500); edited(); };
+    const dl = el('input', 't-dl');
+    dl.type = 'date'; dl.value = t.deadline;
+    dl.setAttribute('aria-label', L().planDeadline);
+    dl.oninput = () => { t.deadline = dl.value; edited(); };
+    const diff = el('div', 'seg3 t-diff');
+    diff.setAttribute('role', 'group');
+    diff.setAttribute('aria-label', L().planDiff);
+    L().diff.forEach((label, i) => {
+      const b = el('button', t.diff === i + 1 ? 'on' : '', label);
+      b.type = 'button';
+      b.onclick = () => { t.diff = i + 1; [...diff.children].forEach((c, j) => c.classList.toggle('on', j === i)); edited(); };
+      diff.append(b);
+    });
+    const rm = el('button', 'rm t-rm');
+    rm.type = 'button';
+    rm.title = L().removeTask;
+    rm.setAttribute('aria-label', L().removeTask);
+    rm.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>';
+    rm.onclick = () => { tasks = tasks.filter(x => x !== t); planResult = null; saveTasks(); renderPlanner(); };
+    const note = el('div', 'task-note');
+    note.dataset.id = t.id;
+    row.append(sw, name, hrs, dl, diff, rm, note);
+    return row;
+  }
+
+  function renderPlanner() {
+    $('planDays').replaceChildren(...L().daysShort.map((d, i) => {
+      const b = el('button', planCfg.days[i] ? 'on' : '', d);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', !!planCfg.days[i]);
+      b.onclick = () => { planCfg.days[i] = planCfg.days[i] ? 0 : 1; planResult = null; savePlanCfg(); renderPlanner(); };
+      return b;
+    }));
+    const fill = (id, values, label, value) => {
+      const s = $(id);
+      s.innerHTML = values.map(v => `<option value="${v}">${label(v)}</option>`).join('');
+      s.value = value;
+    };
+    const half = (a, b) => Array.from({ length: (b - a) / 30 + 1 }, (_, i) => a + i * 30);
+    fill('planFrom', half(DAY_START, DAY_END - 60), hm, planCfg.from);
+    fill('planTo', half(DAY_START + 60, DAY_END), v => (v === 1440 ? '24:00' : hm(v)), planCfg.to);
+    fill('planBlock', [60, 90, 120, 180, 240], fmtH, planCfg.block);
+    fill('planGap', [0, 10, 15, 30], v => (v ? `${v}${L().min}` : L().noBreak), planCfg.gap);
+    const list = $('planTasks');
+    list.replaceChildren(...(tasks.length ? tasks.map(taskRow) : [el('p', 'plan-empty', L().planNoTasks)]));
+    $('planTaskHead').hidden = !tasks.length;
+    updatePlanInfo();
+  }
+
+  function buildPlanner() {
+    const dlg = $('planDlg');
+    $('planCard').onclick = () => { renderPlanner(); dlg.showModal(); };
+    $('planClose').onclick = () => dlg.close();
+    dlg.addEventListener('click', ev => { if (ev.target === dlg) dlg.close(); }); // click on the backdrop
+    [['planFrom', 'from'], ['planTo', 'to'], ['planBlock', 'block'], ['planGap', 'gap']].forEach(([id, prop]) => {
+      $(id).onchange = () => {
+        planCfg[prop] = +$(id).value;
+        if (planCfg.to <= planCfg.from) planCfg.to = Math.min(planCfg.from + 60, DAY_END);
+        planResult = null;
+        savePlanCfg();
+        renderPlanner();
+      };
+    });
+    $('planAdd').onclick = () => {
+      tasks.push({ id: uid(), title: '', hours: 2, deadline: key(addDays(new Date(), 7)), diff: 2, color: PALETTE[tasks.length % PALETTE.length].id });
+      planResult = null;
+      saveTasks();
+      renderPlanner();
+      const names = document.querySelectorAll('#planTasks .t-name');
+      names[names.length - 1].focus();
+    };
+    $('planRun').onclick = runPlanner;
+    $('planClear').onclick = clearPlan;
+    updatePlanInfo();
+  }
+
   // ---------- Cloud sync (Firebase: Google sign-in + Firestore) ----------
   // After signing in with Google, projects, lunch and the timer live in one Firestore document
   // owned by that account (calendars/{uid}); every signed-in device listens to it in real time.
@@ -898,7 +1185,7 @@
     try {
       const stamp = load('cd.updated', 0) || Date.now();
       setLocal('cd.updated', stamp);
-      await fb.setDoc(docRef, { updated: stamp, json: JSON.stringify({ v: 1, events, lunch, timer }) });
+      await fb.setDoc(docRef, { updated: stamp, json: JSON.stringify({ v: 1, events, lunch, timer, tasks, planCfg }) });
       if (load('cd.updated', 0) === stamp) setLocal('cd.dirty', false); // nothing changed meanwhile
       syncError = '';
       setSyncState('ok');
@@ -915,18 +1202,22 @@
     lunch = { ...lunch, ...(remote.lunch || {}) };
     toSlots(lunch);
     timer = { ...timer, ...(remote.timer || {}), mode: '12', half: null };
-    saveEvents(); saveLunch(); saveTimer();
+    if (Array.isArray(remote.tasks)) tasks = remote.tasks;
+    if (remote.planCfg) planCfg = { ...planCfg, ...remote.planCfg };
+    planResult = null;
+    saveEvents(); saveLunch(); saveTimer(); saveTasks(); savePlanCfg();
     setLocal('cd.updated', remote.updated || 0);
     setLocal('cd.dirty', false);
     syncQuiet = false;
     render();
     renderTimer();
+    updatePlanInfo();
   }
 
   // Apply a cloud copy once the editor is closed and nothing is being dragged.
   function flushRemote() {
     if (!pendingRemote) return;
-    if (!pop.hidden || dragging) { setTimeout(flushRemote, 2000); return; }
+    if (!pop.hidden || dragging || $('planDlg').open) { setTimeout(flushRemote, 2000); return; }
     const d = pendingRemote;
     pendingRemote = null;
     try {
@@ -1001,6 +1292,7 @@
   applyLang();
   buildEditor();
   buildDial();
+  buildPlanner();
   ensureSel();
   render();
   renderTimer();
