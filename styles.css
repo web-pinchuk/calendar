@@ -392,3 +392,7 @@ button { cursor: pointer; border: 0; background: none; }
 .today-card .head-day { font-size: 15px; }
 .today-card .head-date { font-size: 12px; margin-top: 1px; }
 .foot .clock { font-size: 22px; letter-spacing: .04em; align-items: center; }
+
+/* ================= v9: account dialog ================= */
+#accOut { margin-right: auto; color: #c2371a; }
+.sync-actions button[hidden] { display: none; }
