@@ -807,3 +807,6 @@ button { cursor: pointer; border: 0; background: none; }
 
 body.guest #bell, body.guest .grip, body.guest .plan-tabs, body.guest .plan-add, body.guest .plan-foot { display: none; }
 body.guest .col, body.guest .dial-btn { cursor: default; }
+
+/* v24: invitation button in the access list */
+.acc-inv:hover { color: var(--ink); }
