@@ -52,9 +52,11 @@
       accOwn: 'This is your own email', accSaved: 'Access saved', accGone: 'Access removed',
       invSending: 'Sending the invitation…', invSent: m => 'Invitation sent to ' + m, invFailed: 'Access saved, but the invitation was not sent',
       pOnline: 'Online now', pOffline: 'Offline', pNever: 'Has not opened it yet', pSeen: when => 'Last visit: ' + when,
+      ownOn: 'Own calendar: allowed', ownOff: 'Allow their own calendar', ownTag: 'own calendar', ownGranted: 'Own calendar allowed', ownRevoked: 'Own calendar switched off',
+      accNoOwn: 'No cloud calendar for this account: kept on this device only', menuMine: 'My calendar',
       menuLang: 'Language', menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
       accInvite: 'Send the invitation', invSubject: 'Access to my work calendar',
-      invBody: (link, mail, name) => `Hello!\n\nI have given you view access to my work calendar.\n\nOpen it here: ${link}\nSign in with this Google account: ${mail}\n\n${name}`,
+      invBody: (link, mail, name, mine) => `Hello!\n\nI have given you view access to my work calendar.\n\nOpen it here: ${link}\nSign in with this Google account: ${mail}${mine ? '\n\nYou can also keep your own calendar here: ' + mine : ''}\n\n${name}`,
       viewOnly: 'View only', gateTitle: 'Shared calendar', gateSignIn: 'Sign in with the Google account that was given access.',
       gateLoading: 'Opening the calendar…', gateDenied: m => 'No access for ' + m + '. Ask the owner to add this email.',
       gateError: 'Could not open the calendar. Try again later.', gateOther: 'Use another account',
@@ -109,9 +111,11 @@
       accOwn: 'Це ваша власна пошта', accSaved: 'Доступ збережено', accGone: 'Доступ забрано',
       invSending: 'Надсилаю запрошення…', invSent: m => 'Запрошення надіслано на ' + m, invFailed: 'Доступ збережено, але запрошення не надіслано',
       pOnline: 'Зараз онлайн', pOffline: 'Офлайн', pNever: 'Ще не відкривали', pSeen: when => 'Останній візит: ' + when,
+      ownOn: 'Власний календар: дозволено', ownOff: 'Дозволити власний календар', ownTag: 'власний календар', ownGranted: 'Власний календар дозволено', ownRevoked: 'Власний календар вимкнено',
+      accNoOwn: 'Для цього акаунта немає хмарного календаря: лише на цьому пристрої', menuMine: 'Мій календар',
       menuLang: 'Мова', menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
       accInvite: 'Надіслати запрошення', invSubject: 'Доступ до мого робочого календаря',
-      invBody: (link, mail, name) => `Вітаю!\n\nЯ надав вам доступ на перегляд мого робочого календаря.\n\nВідкрити: ${link}\nУвійдіть через цей Google-акаунт: ${mail}\n\n${name}`,
+      invBody: (link, mail, name, mine) => `Вітаю!\n\nЯ надав вам доступ на перегляд мого робочого календаря.\n\nВідкрити: ${link}\nУвійдіть через цей Google-акаунт: ${mail}${mine ? '\n\nВи також можете вести власний календар тут: ' + mine : ''}\n\n${name}`,
       viewOnly: 'Лише перегляд', gateTitle: 'Спільний календар', gateSignIn: 'Увійдіть через Google-акаунт, якому надали доступ.',
       gateLoading: 'Відкриваю календар…', gateDenied: m => 'Немає доступу для ' + m + '. Попросіть власника додати цю пошту.',
       gateError: 'Не вдалося відкрити календар. Спробуйте пізніше.', gateOther: 'Інший акаунт',
@@ -1773,6 +1777,7 @@
   const fbConfig = window.FIREBASE_CONFIG || null; // filled in firebase-config.js
   let fb = null, user = null, docRef = null, unsub = null;
   let pushTimer = null, pendingRemote = null, justSignedIn = false, syncError = '';
+  let members = [], guestMember = false, noOwn = false; // who may keep their own calendar; is the viewer one of them; this account may not
   let viewers = [], guestOwner = ''; // emails allowed to view this calendar; whose calendar a viewer looks at
   const setLocal = (k, v) => { if (GUEST) return; try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } };
   try { localStorage.removeItem('cd.sync'); } catch { /* storage unavailable */ } // old GitHub access token
@@ -1791,14 +1796,15 @@
   function setSyncState(state) {
     const b = $('cloud');
     b.dataset.state = state;
-    const label = { off: L().accIsOff, ok: L().accIsOk, busy: L().accIsBusy, error: `${L().accIsError}${syncError ? ': ' + syncError : ''}` }[state];
+    const label = noOwn && user && !GUEST ? L().accNoOwn : { off: L().accIsOff, ok: L().accIsOk, busy: L().accIsBusy, error: `${L().accIsError}${syncError ? ': ' + syncError : ''}` }[state];
     b.title = label;
     b.setAttribute('aria-label', label);
     $('syncStatus').textContent = $('menuStatus').textContent = label;
     $('menuBtn').dataset.state = state;
     $('menuBtn').title = L().menu;
     $('menuBtn').setAttribute('aria-label', L().menu);
-    $('mAccess').hidden = $('mLink').hidden = !user || !!GUEST;
+    $('mAccess').hidden = $('mLink').hidden = !user || !!GUEST || noOwn;
+    $('mMine').hidden = !(GUEST && guestMember);
     $('mIn').hidden = !fbConfig || !!user;
     $('mOut').hidden = !user;
     // Under the app name: which account the calendar belongs to.
@@ -1831,7 +1837,8 @@
       const v = visits.get(mail), online = !!v && Date.now() - v.seen < ONLINE_MS;
       const row = el('div', `person${online ? ' online' : ''}`);
       const text = el('div', 'person-text');
-      text.append(el('b', '', mail), el('small', '', online ? L().pOnline : v && v.seen ? seenText(v.seen) : L().pNever));
+      const seen = online ? L().pOnline : v && v.seen ? seenText(v.seen) : L().pNever;
+      text.append(el('b', '', mail), el('small', '', members.includes(mail) ? ` · ${L().ownTag}` : seen));
       text.title = mail;
       const rm = el('button', 'person-rm');
       rm.type = 'button';
@@ -1846,11 +1853,38 @@
       };
       const dot = el('i', 'person-dot');
       dot.title = online ? L().pOnline : L().pOffline;
-      row.append(dot, text, rm);
+      row.append(dot, text, ...(isAdmin() ? [ownButton(mail, 'person-rm')] : []), rm);
       return row;
     }));
   }
 
+  // ----- Own calendar: the site owner decides which invited people may keep a calendar of their own -----
+  const isAdmin = () => !!user && user.uid === window.OWNER_UID;
+  function ownButton(mail, cls) {
+    const on = members.includes(mail);
+    const b = el('button', `${cls} own${on ? ' on' : ''}`);
+    b.type = 'button';
+    b.title = on ? L().ownOn : L().ownOff;
+    b.setAttribute('aria-label', `${b.title}: ${mail}`);
+    b.setAttribute('aria-pressed', on);
+    b.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11V8a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h5"/><path d="M4 10h16M8 3v4M16 3v4M18 15v6M15 18h6"/></svg>';
+    b.onclick = () => setOwn(mail, !on);
+    return b;
+  }
+  async function setOwn(mail, on) {
+    const before = members;
+    members = on ? [...members, mail] : members.filter(m => m !== mail);
+    renderAccess();
+    try {
+      await fb.setDoc(docRef, { members }, { merge: true });
+      accMsg(on ? L().ownGranted : L().ownRevoked);
+      toast(on ? L().ownGranted : L().ownRevoked, mail);
+    } catch (err) {
+      members = before;
+      renderAccess();
+      accMsg(`${L().accIsError}: ${err.code || err.message}`);
+    }
+  }
   // ----- View access: the owner lists Google emails; those people open the calendar by a link -----
   const shareLink = () => `${location.origin}${location.pathname}?u=${user.uid}`;
   const accMsg = text => { $('accMsg').textContent = text; };
@@ -1858,7 +1892,7 @@
     renderPeople();
     $('accessCount').textContent = viewers.length || '';
     const box = $('access');
-    box.hidden = !user || !!GUEST;
+    box.hidden = !user || !!GUEST || noOwn;
     if (box.hidden) return;
     $('accLink').value = shareLink();
     $('accList').replaceChildren(...(viewers.length ? viewers.map(mail => {
@@ -1875,20 +1909,22 @@
       inv.setAttribute('aria-label', `${L().accInvite}: ${mail}`);
       inv.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="m4 8 8 5.5L20 8"/></svg>';
       inv.onclick = () => invite(mail);
-      row.append(el('span', '', mail), inv, rm);
+      row.append(el('span', '', mail), ...(isAdmin() ? [ownButton(mail, 'acc-rm')] : []), inv, rm);
       return row;
     }) : [el('p', 'acc-none', L().accNone)]));
   }
   async function setViewers(list, done) {
-    const before = viewers;
+    const before = viewers, beforeOwn = members;
     viewers = list;
+    members = members.filter(m => list.includes(m)); // no access, no own calendar
     renderAccess();
     try {
-      await fb.setDoc(docRef, { viewers: list, owner: user.displayName || user.email }, { merge: true });
+      await fb.setDoc(docRef, { viewers: list, owner: user.displayName || user.email, ...(isAdmin() ? { members } : {}) }, { merge: true });
       accMsg(done);
       return true;
     } catch (err) {
       viewers = before;
+      members = beforeOwn;
       renderAccess();
       accMsg(`${L().accIsError}: ${err.code || err.message}`);
       return false;
@@ -1914,14 +1950,14 @@
     if (url) {
       accMsg(L().invSending);
       try {
-        const res = await fetch(url, { method: 'POST', body: JSON.stringify({ token: await user.getIdToken(), to: mail, lang }) });
+        const res = await fetch(url, { method: 'POST', body: JSON.stringify({ token: await user.getIdToken(), to: mail, lang, own: members.includes(mail) }) });
         const out = await res.json();
         if (!out.ok) throw new Error(out.error);
         accMsg(L().invSent(mail));
       } catch (err) { accMsg(`${L().invFailed}${err && err.message ? ': ' + err.message : ''}`); }
       return;
     }
-    const q = new URLSearchParams({ view: 'cm', fs: '1', authuser: user.email, to: mail, su: L().invSubject, body: L().invBody(shareLink(), mail, user.displayName || user.email) });
+    const q = new URLSearchParams({ view: 'cm', fs: '1', authuser: user.email, to: mail, su: L().invSubject, body: L().invBody(shareLink(), mail, user.displayName || user.email, members.includes(mail) ? `${location.pathname}` : '') });
     window.open(`https://mail.google.com/mail/?${q}`, '_blank', 'noopener');
   }
 
@@ -1942,6 +1978,7 @@
     try {
       const d = snap.data();
       guestOwner = d.owner || '';
+      guestMember = GUEST === window.OWNER_UID && Array.isArray(d.members) && d.members.includes((user.email || '').toLowerCase());
       applyRemote({ ...JSON.parse(d.json), updated: d.updated });
       if ($('planDlg').open) renderPlanner();
       syncError = '';
@@ -1962,6 +1999,7 @@
       syncError = '';
       setSyncState('ok');
     } catch (err) {
+      if (err.code === 'permission-denied' && !isAdmin()) { noOwn = true; syncError = ''; setSyncState('off'); return; } // not allowed a calendar of their own
       syncError = err.code || err.message;
       setSyncState('error');
     }
@@ -2006,7 +2044,7 @@
   }
 
   function onRemote(snap) {
-    if (snap.exists()) { const list = snap.data().viewers; viewers = Array.isArray(list) ? list : []; renderAccess(); }
+    if (snap.exists()) { const d = snap.data(); viewers = Array.isArray(d.viewers) ? d.viewers : []; members = Array.isArray(d.members) ? d.members : []; renderAccess(); }
     if (snap.metadata.hasPendingWrites) return; // our own write, still on its way
     const fresh = justSignedIn;
     justSignedIn = false;
@@ -2029,6 +2067,7 @@
     document.addEventListener('keydown', ev => { if (ev.key === 'Escape') showMenu(false); });
     menu.addEventListener('click', ev => { const b = ev.target.closest('.mi'); if (b && b.id !== 'bell') showMenu(false); });
     $('mAccess').onclick = () => { setSyncState($('cloud').dataset.state || 'off'); dlg.showModal(); $('accMail').focus(); };
+    $('mMine').onclick = () => { location.href = location.pathname; };
     $('mLink').onclick = async () => {
       try { await navigator.clipboard.writeText(shareLink()); toast(L().accCopied); } catch { setSyncState($('cloud').dataset.state || 'off'); dlg.showModal(); $('accLink').focus(); }
     };
@@ -2072,6 +2111,8 @@
         if (unsubVisits) { unsubVisits(); unsubVisits = null; }
         visits = new Map();
         sharedOpen = false;
+        members = [];
+        noOwn = guestMember = false;
         viewers = [];
         accMsg('');
         if (GUEST) { // someone else's calendar: read it, never write
