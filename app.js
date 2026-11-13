@@ -821,6 +821,10 @@
   function saveTimer() { save('cd.timer3', timer); }
   const todayProjects = () => projectsOn(key(new Date())).filter(e => e.color !== 'neutral'); // lunch and rest are not projects
   const R_OUT = 108, R_IN = 72, R_STEP = 12;
+  // The dial is a gauge: a 270-degree arc that starts bottom-left with the first working hour
+  // and ends bottom-right with the last one (angles in screen coordinates, clockwise).
+  const ARC0 = Math.PI * 0.75, ARC = Math.PI * 1.5;
+  const arcPoint = (r, a) => `${(150 + r * Math.cos(a)).toFixed(1)} ${(150 + r * Math.sin(a)).toFixed(1)}`;
   const NS = 'http://www.w3.org/2000/svg';
   const svgEl = (tag, attrs, parent) => {
     const n = document.createElementNS(NS, tag);
@@ -890,14 +894,11 @@
   function buildDial() {
     const svg = $('dialSvg');
     ringLayer = svgEl('g', {}, svg);
-    // Hour labels sit at the same distance from the outer ring on all four sides.
-    const gap = 9;
-    ticks = [
-      svgEl('text', { class: 'tick', x: 150, y: 150 - R_OUT - gap, 'text-anchor': 'middle' }, svg),
-      svgEl('text', { class: 'tick', x: 150 + R_OUT + gap, y: 154, 'text-anchor': 'start' }, svg),
-      svgEl('text', { class: 'tick', x: 150, y: 150 + R_OUT + gap + 8, 'text-anchor': 'middle' }, svg),
-      svgEl('text', { class: 'tick', x: 150 - R_OUT - gap, y: 154, 'text-anchor': 'end' }, svg),
-    ];
+    // Five hour labels along the arc: start, quarter, middle, three quarters, end of the working day.
+    ticks = [0, 1, 2, 3, 4].map(i => {
+      const a = ARC0 + ARC * i / 4, c = Math.cos(a), r = R_OUT + 13;
+      return svgEl('text', { class: 'tick', x: (150 + r * c).toFixed(1), y: (150 + r * Math.sin(a) + 4).toFixed(1), 'text-anchor': c < -0.3 ? 'end' : c > 0.3 ? 'start' : 'middle' }, svg);
+    });
     arcLayer = svgEl('g', {}, svg);
 
     $('dialBtn').onclick = () => {
@@ -937,10 +938,10 @@
     if (ringCount !== list.length) { // one ring per project of the day
       ringCount = list.length;
       ringLayer.replaceChildren();
-      list.forEach((_, i) => svgEl('circle', { class: 'ring', cx: 150, cy: 150, r: radius(i) }, ringLayer));
+      list.forEach((_, i) => svgEl('path', { class: 'ring', d: `M${arcPoint(radius(i), ARC0)} A${radius(i)} ${radius(i)} 0 1 1 ${arcPoint(radius(i), ARC0 + ARC)}` }, ringLayer));
     }
 
-    const angle = m => (m - from) / span * 2 * Math.PI - Math.PI / 2;
+    const angle = m => ARC0 + (m - from) / span * ARC;
     const pt = (r, a) => `${(150 + r * Math.cos(a)).toFixed(1)} ${(150 + r * Math.sin(a)).toFixed(1)}`;
     let markup = '';
     const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
@@ -949,7 +950,7 @@
       segmentsOf(e).forEach(s => {
         const a = clamp(s.a, from, from + span), b = clamp(s.b, from, from + span); // only the part inside the working day
         if (b < a || (b === a && !s.live)) return;
-        const a1 = angle(a), a2 = a1 + Math.min((b - a) / span * 2 * Math.PI, 2 * Math.PI - 0.002);
+        const a1 = angle(a), a2 = angle(b);
         markup += `<path class="arc" d="M${pt(r, a1)} A${r} ${r} 0 ${a2 - a1 > Math.PI ? 1 : 0} 1 ${pt(r, a2)}" stroke="${c}" style="filter:drop-shadow(0 0 4px ${c})"/>`;
         // White dot: only on the selected project, and only until that piece of work is finished.
         if (e.id === timer.sel && (s.live || (s.planned && s.b > nowMin))) {
