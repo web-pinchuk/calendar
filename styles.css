@@ -864,3 +864,14 @@ body.guest .col, body.guest .dial-btn { cursor: default; }
 .person-rm.own:hover { color: var(--violet); }
 .acc-rm.own.on { color: #6a3fd0; background: #e7defb; }
 .acc-rm.own:hover { color: #6a3fd0; }
+
+/* ---------- v30: visits of an invited person, opened by a press on their row ---------- */
+.person-text { cursor: pointer; border-radius: 8px; outline-offset: 3px; }
+.person-text:hover b { color: var(--violet); }
+.person-log { margin: 0 4px 8px 21px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; scrollbar-width: thin; }
+.person-log p { font-size: 12px; color: rgba(255, 255, 255, .55); }
+.person-log .person-sum { color: #fff; font-weight: 500; }
+.person-log h5 { margin-top: 6px; font-size: 11px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: rgba(255, 255, 255, .45); }
+.person-visit { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: rgba(255, 255, 255, .85); font-variant-numeric: tabular-nums; }
+.person-visit em { font-style: normal; color: rgba(255, 255, 255, .5); white-space: nowrap; }
+.person-visit.live span, .person-visit.live em { color: #3ddc84; }
