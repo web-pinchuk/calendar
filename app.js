@@ -23,15 +23,16 @@
       inMin: m => `In ${m} min`, startsNow: 'Starting now', bell: 'Event notifications',
       appName: 'Account',
       planner: 'Planner', planEmpty: 'Plan your projects', planCount: n => (n === 1 ? '1 project' : n + ' projects'),
-      planHelp: 'Days: hours are spread between the start date and the deadline, nearest deadlines first, hard work earlier in the day. Hours: a short task at an exact time.',
+      planHelp: 'Days: the planner works on the project every working day between the start and the deadline: Easy 1 h a day, Medium 2 h, Hard 3 h. Hours: a short task at an exact time.',
+      planOver: 'The deadline has passed',
       planStart: 'Start', planDate: 'Date', planDur: 'Duration', planMode: 'Planning mode', modeDays: 'Days', modeHours: 'Hours',
       planLunch: 'Lunch break', planFixed: 'Scheduled', planPast: 'This time has already passed',
       planWork: 'Working time', planFrom: 'From', planTo: 'To', planBlock: 'Focus block', planGap: 'Break', noBreak: 'No break', h: 'h', min: ' min',
       planProjectsTitle: 'Projects', planName: 'Project', planHours: 'Hours', planDeadline: 'Deadline', planDiff: 'Difficulty', diff: ['Easy', 'Medium', 'Hard'],
       planAddTask: 'Add project', removeTask: 'Remove project', planClear: 'Clear plan', planRun: 'Plan',
-      planNoTasks: 'No projects yet. Add the first one.', planNone: 'Add a project with a name, hours and a deadline first.',
+      planNoTasks: 'No projects yet. Add the first one.', planNone: 'Add a project with a name and dates first.',
       planNeed: 'To do', planFree: 'free before the last deadline', planDone: 'done', planLeft: 'left',
-      planFits: 'Fits', planEnds: 'finishes', planAllDone: 'All hours are already done',
+      planFits: 'Fits', planEnds: 'finishes', planAllDone: 'Nothing left to plan',
       planShort: h => 'Not enough time: ' + h + ' will not fit before the deadline',
       planMade: (b, d) => 'Planned ' + b + (b === 1 ? ' block' : ' blocks') + ' over ' + d + (d === 1 ? ' day' : ' days'), syncLocal: 'This device only',
       accTitle: 'Account', accIn: 'Sign in with Google', accOut: 'Sign out', accAs: 'Signed in as', close: 'Close',
@@ -61,15 +62,16 @@
       appName: 'Акаунт',
       planner: 'Планувальник', planEmpty: 'Розпланувати проєкти',
       planCount: n => n + (n % 10 === 1 && n % 100 !== 11 ? ' проєкт' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? ' проєкти' : ' проєктів'),
-      planHelp: 'Дні: години розкладаються між датою початку й дедлайном, спершу найближчі дедлайни, складне на початок дня. Години: коротке завдання на точний час.',
+      planHelp: 'Дні: планувальник ставить роботу над проєктом на кожен робочий день між початком і дедлайном: Легко 1 год на день, Середньо 2, Важко 3. Години: коротке завдання на точний час.',
+      planOver: 'Дедлайн уже минув',
       planStart: 'Початок', planDate: 'Дата', planDur: 'Тривалість', planMode: 'Режим планування', modeDays: 'Дні', modeHours: 'Години',
       planLunch: 'Обідня перерва', planFixed: 'Заплановано', planPast: 'Цей час уже минув',
       planWork: 'Робочий час', planFrom: 'З', planTo: 'До', planBlock: 'Блок роботи', planGap: 'Перерва', noBreak: 'Без перерви', h: ' год', min: ' хв',
       planProjectsTitle: 'Проєкти', planName: 'Проєкт', planHours: 'Години', planDeadline: 'Дедлайн', planDiff: 'Складність', diff: ['Легко', 'Середньо', 'Важко'],
       planAddTask: 'Додати проєкт', removeTask: 'Прибрати проєкт', planClear: 'Очистити план', planRun: 'Розпланувати',
-      planNoTasks: 'Проєктів ще немає. Додайте перший.', planNone: 'Спершу додайте проєкт з назвою, годинами й дедлайном.',
+      planNoTasks: 'Проєктів ще немає. Додайте перший.', planNone: 'Спершу додайте проєкт з назвою й датами.',
       planNeed: 'Залишилось', planFree: 'вільно до останнього дедлайну', planDone: 'зроблено', planLeft: 'залишилось',
-      planFits: 'Вміщається', planEnds: 'завершення', planAllDone: 'Усі години вже відпрацьовано',
+      planFits: 'Вміщається', planEnds: 'завершення', planAllDone: 'Більше нічого планувати',
       planShort: h => 'Не вистачає часу: ' + h + ' не вміщається до дедлайну',
       planMade: (b, d) => 'Заплановано блоків: ' + b + ', днів: ' + d, syncLocal: 'Лише цей пристрій',
       accTitle: 'Акаунт', accIn: 'Увійти через Google', accOut: 'Вийти', accAs: 'Ви ввійшли як', close: 'Закрити',
@@ -897,7 +899,26 @@
   const fmtH = min => `${+(min / 60).toFixed(2)}${L().h}`;
   const isFixed = t => t.mode === 'hours';
   const endDate = t => (isFixed(t) ? t.date : t.deadline);
-  const validTasks = () => tasks.filter(t => t.title.trim() && (isFixed(t) ? t.date && t.to > t.from : t.hours > 0 && t.deadline));
+  const validTasks = () => tasks.filter(t => t.title.trim() && (isFixed(t) ? t.date && t.to > t.from : t.start && t.deadline));
+  // Flexible projects need no hour estimate: the load follows from the difficulty,
+  // as minutes of work per working day between the start date and the deadline.
+  const RATE = [0, 60, 120, 180]; // easy, medium, hard
+  const workdays = (fromK, toK) => {
+    let n = 0;
+    for (let d = fromKey(fromK), i = 0; key(d) <= toK && i < 800; d = addDays(d, 1), i++) n += planCfg.days[dow(d)] ? 1 : 0;
+    return n;
+  };
+  const autoTotal = t => workdays(t.start, t.deadline) * RATE[t.diff];
+  const todayCounts = () => nowMinutes() < planCfg.to; // today's working time is not over yet
+  function autoLeft(t) { // what is still ahead, from today on
+    const todayK = key(new Date()), now = nowMinutes();
+    let from = t.start > todayK ? t.start : todayK, doneToday = 0;
+    if (from === todayK) {
+      if (!todayCounts()) from = key(addDays(new Date(), 1));
+      else doneToday = events.reduce((sum, e) => sum + (e.plan === t.id && e.date === todayK ? e.slots.reduce((a, x) => a + (x.start < now ? x.end - x.start : 0), 0) : 0), 0);
+    }
+    return Math.max(0, workdays(from, t.deadline) * RATE[t.diff] - doneToday);
+  }
 
   function splitPlanned() {
     const today = key(new Date()), now = nowMinutes();
@@ -927,8 +948,8 @@
     return free.filter(([x, y]) => y - x >= 30);
   }
 
-  function schedule(perDayCap) {
-    const { kept, done } = splitPlanned();
+  function schedule(even) {
+    const { kept } = splitPlanned();
     const today = fromKey(key(new Date())), todayK = key(today), now = nowMinutes();
     const out = [], info = {};
 
@@ -943,33 +964,36 @@
 
     const byDeadline = (a, b) => a.t.deadline.localeCompare(b.t.deadline) || b.t.diff - a.t.diff;
     const list = validTasks().filter(t => !isFixed(t)).map(t => {
-      const rem = Math.max(0, Math.round((t.hours * 60 - (done[t.id] || 0)) / 15) * 15);
-      return { t, rem, late: 0, last: null, nothing: rem === 0 };
+      const rem = autoLeft(t);
+      return { t, rem, late: 0, last: null, nothing: rem === 0, over: t.deadline < todayK, quota: 0, placed: 0 };
     }).sort(byDeadline);
     const lastDeadline = list.reduce((m, x) => (x.t.deadline > m ? x.t.deadline : m), todayK);
     const horizon = addDays(fromKey(lastDeadline), 21);
 
     for (let d = today, n = 0; d <= horizon && n < 180 && list.some(x => x.rem > 0); d = addDays(d, 1), n++) {
       const k = key(d), free = freeIntervals(k, busy);
+      // Every working day adds the project's daily portion; what a busy day could not take is caught up later.
+      if (planCfg.days[dow(d)] && (k !== todayK || todayCounts())) list.forEach(c => { if ((c.t.start || '') <= k) c.quota += RATE[c.t.diff]; });
       let capacity = free.reduce((sum, [x, y]) => sum + y - x, 0);
       if (!capacity) continue;
 
       // 1. Choose today's focus blocks: nearest deadline first, limited per project, not before its start date.
       //    Projects whose deadline has already passed must not starve the ones that can still make it.
-      const count = new Map(), chunks = [];
-      const open = c => c.rem > 0 && (count.get(c) || 0) < perDayCap && (c.t.start || '') <= k;
+      const chunks = [];
+      const cap = c => (even && k <= c.t.deadline ? c.quota - c.placed : Infinity);
+      const open = c => c.rem > 0 && cap(c) >= 15 && (c.t.start || '') <= k;
       for (;;) {
         const pause = chunks.length ? planCfg.gap : 0, room = capacity - pause;
         if (room < 15) break;
         const x = list.find(c => open(c) && c.t.deadline >= k) || list.find(open);
         if (!x) break;
-        let len = Math.min(planCfg.block, x.rem, room);
+        let len = Math.min(planCfg.block, x.rem, room, cap(x));
         const tail = x.rem - len;
         if (tail > 0 && tail < 30 && tail <= pause) len += tail; // skip the break rather than leave a 15-minute stub
         chunks.push({ x, len });
         x.rem -= len;
         capacity -= len + pause;
-        count.set(x, (count.get(x) || 0) + 1);
+        x.placed += len;
       }
       // 2. Order them: harder work earlier in the day.
       chunks.sort((a, b) => b.x.t.diff - a.x.t.diff || byDeadline(a.x, b.x));
@@ -992,6 +1016,7 @@
           pos += take + planCfg.gap;
         }
         c.x.rem += left; // did not fit today: goes to the following days
+        c.x.placed -= left;
       });
       slotsOf.forEach((slots, x) => {
         out.push({ id: uid(), title: x.t.title.trim(), date: k, color: x.t.color, onDial: false, plan: x.t.id, slots });
@@ -999,14 +1024,14 @@
         x.last = k;
       });
     }
-    list.forEach(x => { info[x.t.id] = { rem: x.rem, late: x.late, last: x.last, nothing: x.nothing }; });
+    list.forEach(x => { info[x.t.id] = { rem: x.rem, late: x.late, last: x.last, nothing: x.nothing, over: x.over }; });
     return { kept, out, info, score: list.reduce((sum, x) => sum + x.late + x.rem, 0) };
   }
 
   function runPlanner() {
     if (!validTasks().length) { toast(L().planner, L().planNone); return; }
-    let r = schedule(2); // spread projects over days...
-    if (r.score > 0) { const tight = schedule(Infinity); if (tight.score < r.score) r = tight; } // ...unless deadlines are tight
+    let r = schedule(true); // an even daily portion of every project...
+    if (r.score > 0) { const tight = schedule(false); if (tight.score < r.score) r = tight; } // ...unless that cannot meet the deadlines
     events = r.kept.concat(r.out);
     saveEvents();
     planResult = {
@@ -1033,23 +1058,22 @@
 
   // Notes under each project, the summary line and the sidebar card.
   function updatePlanInfo() {
-    const { kept, done } = splitPlanned();
+    tasks.forEach(normalizeTask);
+    const { kept } = splitPlanned();
     const list = validTasks();
     const todayK = key(new Date()), now = nowMinutes();
-    const left = t => (isFixed(t)
-      ? (t.date > todayK || (t.date === todayK && t.from >= now) ? t.to - t.from : 0)
-      : Math.max(0, t.hours * 60 - (done[t.id] || 0)));
+    const left = t => (isFixed(t) ? (t.date > todayK || (t.date === todayK && t.from >= now) ? t.to - t.from : 0) : autoLeft(t));
     document.querySelectorAll('#planTasks .task-note').forEach(note => {
       const t = tasks.find(x => x.id === note.dataset.id), r = planResult && planResult.byTask[note.dataset.id];
       note.className = 'task-note';
       note.textContent = '';
       if (!t) return;
       if (!r) {
-        if (!isFixed(t) && done[t.id]) note.textContent = `${fmtH(done[t.id])} ${L().planDone} · ${fmtH(left(t))} ${L().planLeft}`;
+        if (!isFixed(t) && t.deadline < todayK) { note.textContent = L().planOver; note.classList.add('bad'); }
       } else if (r.fixed) {
         note.textContent = r.missed ? L().planPast : `${L().planFixed} ${shortDate(t.date)} · ${hm(t.from)} – ${hm(t.to)}`;
         note.classList.add(r.missed ? 'bad' : 'ok');
-      } else if (r.nothing) note.textContent = L().planAllDone;
+      } else if (r.nothing) { note.textContent = r.over ? L().planOver : L().planAllDone; if (r.over) note.classList.add('bad'); }
       else if (r.rem + r.late > 0) { note.textContent = L().planShort(fmtH(r.rem + r.late)); note.classList.add('bad'); }
       else { note.textContent = `${L().planFits} · ${L().planEnds} ${shortDate(r.last)}`; note.classList.add('ok'); }
     });
@@ -1126,14 +1150,14 @@
         fields.replaceChildren(field(L().planDate, dateInput('date')), field(L().planFrom, from), field(L().planTo, to), field(L().planDur, dur));
       } else {
         // Flexible project: hours spread between the start date and the deadline.
+        // The hours are not typed in: they follow from the dates and the difficulty.
         let start, deadline;
-        start = dateInput('start', () => { if (t.deadline < t.start) { t.deadline = t.start; deadline.value = t.deadline; } });
-        deadline = dateInput('deadline', () => { if (t.start > t.deadline) { t.start = t.deadline; start.value = t.start; } });
-        const hrs = el('input');
-        hrs.type = 'number'; hrs.min = '0.5'; hrs.max = '500'; hrs.step = '0.5'; hrs.value = t.hours;
-        hrs.oninput = () => { t.hours = clamp(parseFloat(hrs.value) || 0, 0, 500); edited(); };
-        const diff = segmented('', L().diff, t.diff - 1, i => { t.diff = i + 1; edited(); });
-        fields.replaceChildren(field(L().planStart, start), field(L().planDeadline, deadline), field(L().planHours, hrs), field(L().planDiff, diff, 'wide'));
+        const total = el('output', 'dur', fmtH(autoTotal(t)));
+        const recount = () => { total.textContent = fmtH(autoTotal(t)); };
+        start = dateInput('start', () => { if (t.deadline < t.start) { t.deadline = t.start; deadline.value = t.deadline; } recount(); });
+        deadline = dateInput('deadline', () => { if (t.start > t.deadline) { t.start = t.deadline; start.value = t.start; } recount(); });
+        const diff = segmented('', L().diff, t.diff - 1, i => { t.diff = i + 1; recount(); edited(); });
+        fields.replaceChildren(field(L().planStart, start), field(L().planDeadline, deadline), field(L().planDiff, diff, 'wide'), field(L().planHours, total));
       }
     };
     const mode = segmented('t-mode', [L().modeDays, L().modeHours], isFixed(t) ? 1 : 0, i => {
