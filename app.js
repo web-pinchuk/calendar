@@ -2254,6 +2254,36 @@
     }
   }
 
+  // ---------- Analytics (Google Analytics 4, only when GA_ID is set in firebase-config.js) ----------
+  // Counts visits and a few actions. Nothing from the calendar itself is sent: no project names,
+  // no emails, and the owner id is cut out of the shared link.
+  const GA_ID = /^G-[A-Z0-9]{4,}$/.test(window.GA_ID || '') ? window.GA_ID : '';
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { window.dataLayer.push(arguments); }
+  const track = (name, params) => { if (GA_ID) gtag('event', name, params || {}); };
+  if (GA_ID) {
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
+    document.head.append(s);
+    gtag('js', new Date());
+    gtag('config', GA_ID, {
+      page_location: `${location.origin}${location.pathname}${GUEST ? '?shared' : ''}`,
+      page_title: GUEST ? 'Shared calendar' : 'Calendar',
+      calendar_mode: GUEST ? 'shared' : 'own',
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false,
+    });
+    document.querySelectorAll('#lang button').forEach(b => b.addEventListener('click', () => track('language', { language: b.dataset.lang })));
+    document.querySelectorAll('#seg button').forEach(b => b.addEventListener('click', () => track('calendar_view', { view: b.dataset.view })));
+    $('planCard').addEventListener('click', () => track(GUEST ? 'statistics_open' : 'planner_open'));
+    document.querySelectorAll('#planTabs button').forEach(b => b.addEventListener('click', () => track('planner_tab', { tab: b.dataset.tab })));
+    ['accIn', 'gateIn', 'mIn'].forEach(id => $(id).addEventListener('click', () => track('login', { method: 'Google' })));
+    $('accAdd').addEventListener('click', () => track('access_add'));
+    $('mLink').addEventListener('click', () => track('share_link_copy'));
+    $('accCopy').addEventListener('click', () => track('share_link_copy'));
+  }
+
   // ---------- Wiring ----------
   document.querySelectorAll('#seg button').forEach(b => { b.onclick = () => select(sel, b.dataset.view); });
   $('prev').onclick = () => shift(-1);
