@@ -51,6 +51,7 @@
       accNone: 'Nobody has access yet.', accBadMail: 'Enter a full email address', accHas: 'This email is already in the list',
       accOwn: 'This is your own email', accSaved: 'Access saved', accGone: 'Access removed',
       invSending: 'Sending the invitation…', invSent: m => 'Invitation sent to ' + m, invFailed: 'Access saved, but the invitation was not sent',
+      pOnline: 'Online now', pOffline: 'Offline', pNever: 'Has not opened it yet', pSeen: when => 'Last visit: ' + when,
       menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
       accInvite: 'Send the invitation', invSubject: 'Access to my work calendar',
       invBody: (link, mail, name) => `Hello!\n\nI have given you view access to my work calendar.\n\nOpen it here: ${link}\nSign in with this Google account: ${mail}\n\n${name}`,
@@ -107,6 +108,7 @@
       accNone: 'Доступу ще ні в кого немає.', accBadMail: 'Введіть повну адресу пошти', accHas: 'Ця пошта вже є у списку',
       accOwn: 'Це ваша власна пошта', accSaved: 'Доступ збережено', accGone: 'Доступ забрано',
       invSending: 'Надсилаю запрошення…', invSent: m => 'Запрошення надіслано на ' + m, invFailed: 'Доступ збережено, але запрошення не надіслано',
+      pOnline: 'Зараз онлайн', pOffline: 'Офлайн', pNever: 'Ще не відкривали', pSeen: when => 'Останній візит: ' + when,
       menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
       accInvite: 'Надіслати запрошення', invSubject: 'Доступ до мого робочого календаря',
       invBody: (link, mail, name) => `Вітаю!\n\nЯ надав вам доступ на перегляд мого робочого календаря.\n\nВідкрити: ${link}\nУвійдіть через цей Google-акаунт: ${mail}\n\n${name}`,
@@ -1806,10 +1808,52 @@
     renderAccess();
   }
 
+  // ----- People in the header menu: who was invited, when they last opened the calendar -----
+  // A viewer's browser leaves a mark (calendars/{owner}/visits/{viewer}) once a minute while the
+  // shared calendar is on screen; a fresh mark means the person is looking at it right now.
+  const ONLINE_MS = 150000;
+  let visits = new Map(), unsubVisits = null, sharedOpen = false; // email -> { id, seen }
+  function beat() {
+    if (!sharedOpen || !user || !GUEST || user.uid === GUEST || document.hidden) return;
+    fb.setDoc(fb.doc(fb.$db, 'calendars', GUEST, 'visits', user.uid), { email: (user.email || '').toLowerCase(), seen: fb.serverTimestamp() }).catch(() => { /* access was taken away */ });
+  }
+  function seenText(ms) {
+    const d = new Date(ms), time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return L().pSeen(key(d) === key(new Date()) ? time : `${shortDate(key(d))}, ${time}`);
+  }
+  function renderPeople() {
+    const box = $('menuPeople');
+    box.hidden = !user || !!GUEST || !viewers.length;
+    if (box.hidden) return;
+    box.replaceChildren(...viewers.map(mail => {
+      const v = visits.get(mail), online = !!v && Date.now() - v.seen < ONLINE_MS;
+      const row = el('div', `person${online ? ' online' : ''}`);
+      const text = el('div', 'person-text');
+      text.append(el('b', '', mail), el('small', '', online ? L().pOnline : v && v.seen ? seenText(v.seen) : L().pNever));
+      text.title = mail;
+      const rm = el('button', 'person-rm');
+      rm.type = 'button';
+      rm.title = L().accRemove;
+      rm.setAttribute('aria-label', `${L().accRemove}: ${mail}`);
+      rm.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M10 7V5.2A1.2 1.2 0 0 1 11.2 4h1.6A1.2 1.2 0 0 1 14 5.2V7M6.5 7l.8 11.2A2 2 0 0 0 9.300 20h5.400a2 2 0 0 0 2-1.800L17.500 7M10.200 11v5M13.800 11v5"/></svg>';
+      rm.onclick = async () => {
+        if (await setViewers(viewers.filter(x => x !== mail), L().accGone)) {
+          toast(L().accGone, mail);
+          if (v) fb.deleteDoc(fb.doc(fb.$db, 'calendars', user.uid, 'visits', v.id)).catch(() => { /* nothing to clean */ });
+        }
+      };
+      const dot = el('i', 'person-dot');
+      dot.title = online ? L().pOnline : L().pOffline;
+      row.append(dot, text, rm);
+      return row;
+    }));
+  }
+
   // ----- View access: the owner lists Google emails; those people open the calendar by a link -----
   const shareLink = () => `${location.origin}${location.pathname}?u=${user.uid}`;
   const accMsg = text => { $('accMsg').textContent = text; };
   function renderAccess() {
+    renderPeople();
     $('accessCount').textContent = viewers.length || '';
     const box = $('access');
     box.hidden = !user || !!GUEST;
@@ -1901,6 +1945,7 @@
       syncError = '';
       setSyncState('ok');
       gate('ok');
+      if (!sharedOpen) { sharedOpen = true; beat(); } // the first mark of this visit
     } catch (err) { gate('error'); }
   }
 
@@ -2008,7 +2053,11 @@
       accMsg(L().accCopied);
     };
     setSyncState('off');
-    if (GUEST) gate(fbConfig ? 'loading' : 'error');
+    if (GUEST) {
+      gate(fbConfig ? 'loading' : 'error');
+      setInterval(beat, 60000);
+      document.addEventListener('visibilitychange', beat);
+    }
     if (!fbConfig) return;
     try {
       const [app, auth, store] = await Promise.all([import(`${FB_URL}app.js`), import(`${FB_URL}auth.js`), import(`${FB_URL}firestore.js`)]);
@@ -2018,6 +2067,9 @@
         user = u;
         if (unsub) { unsub(); unsub = null; }
         syncError = '';
+        if (unsubVisits) { unsubVisits(); unsubVisits = null; }
+        visits = new Map();
+        sharedOpen = false;
         viewers = [];
         accMsg('');
         if (GUEST) { // someone else's calendar: read it, never write
@@ -2028,6 +2080,11 @@
         }
         if (!u) { setSyncState('off'); return; }
         docRef = fb.doc(fb.$db, 'calendars', u.uid);
+        unsubVisits = fb.onSnapshot(fb.collection(fb.$db, 'calendars', u.uid, 'visits'), snap => {
+          visits = new Map();
+          snap.forEach(d => { const v = d.data(); if (v.email) visits.set(v.email, { id: d.id, seen: v.seen && v.seen.toMillis ? v.seen.toMillis() : 0 }); });
+          renderPeople();
+        }, () => { /* visit marks are optional: the calendar works without them */ });
         setSyncState('busy');
         unsub = fb.onSnapshot(docRef, onRemote, err => { syncError = err.code || err.message; setSyncState('error'); });
       });
@@ -2061,6 +2118,7 @@
   setInterval(() => {
     checkReminders();
     renderHead();
+    renderPeople(); // online marks go stale by themselves
     if (view !== 'month' && pop.hidden && !dragging) renderGrid();
   }, 30000);
   // Keep the whole day fitted to the panel when the window size changes.
