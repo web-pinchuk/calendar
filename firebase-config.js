@@ -17,6 +17,9 @@ window.OWNER_UID = 'j1NM8SN6ApOFAK55Ro0UU3jPFxx2';
 // Google Analytics 4 measurement id (G-XXXXXXXXXX). Empty: no analytics is loaded.
 window.GA_ID = 'G-1DZT3GLGNJ';
 
+// Microsoft Clarity project id (session recordings and heatmaps). Empty: nothing is recorded.
+window.CLARITY_ID = 'zd5m6ecvgk';
+
 // Address of the Google Apps Script that sends invitation letters from the owner's Gmail
 // (see invite-script.gs). Empty: the site opens a ready letter in Gmail instead.
 window.INVITE_URL = '';
