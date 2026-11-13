@@ -775,3 +775,35 @@ button { cursor: pointer; border: 0; background: none; }
   .st-heat { grid-template-columns: 18px repeat(26, minmax(0, 1fr)); gap: 2px; }
   .st-heat i { border-radius: 2px; }
 }
+
+/* ---------- v23: view access (owner's list of emails) + shared view-only mode ---------- */
+.access { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid #e6e8ec; }
+.access[hidden] { display: none; }
+.access h4 { font-size: 16px; font-weight: 500; }
+.acc-line { display: flex; gap: 8px; }
+.acc-line input { flex: 1; min-width: 0; }
+.acc-line button { flex: none; height: 46px; padding: 0 16px; border-radius: 12px; background: var(--ink); color: #fff; font-weight: 500; font-size: 14px; }
+.acc-line button:hover { background: #000; }
+#accLink { color: var(--muted); font-size: 13px; text-overflow: ellipsis; }
+#accCopy { background: var(--panel); color: var(--ink); }
+#accCopy:hover { background: #e9ebef; }
+#accList { display: flex; flex-direction: column; gap: 6px; }
+.acc-row { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 6px 0 14px; border-radius: 12px; background: var(--panel); font-size: 14px; }
+.acc-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-rm { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: var(--muted); }
+.acc-rm:hover { background: #e1e3e8; color: #d2452a; }
+.acc-none { font-size: 14px; color: var(--muted); }
+#accMsg:empty { display: none; }
+.sync { max-height: calc(100dvh - 24px); overflow-y: auto; }
+
+.gate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: #0b0b0f; }
+.gate[hidden] { display: none; }
+.gate-card { width: 400px; max-width: 100%; display: flex; flex-direction: column; gap: 14px; padding: 30px 28px; border-radius: 22px; background: #fff; color: var(--ink); text-align: center; }
+.gate-card h2 { font-size: 24px; font-weight: 500; }
+.gate-card p { font-size: 15px; line-height: 1.45; color: var(--muted); overflow-wrap: anywhere; }
+.gate-card button { height: 48px; border-radius: 13px; background: var(--panel); font-weight: 500; font-size: 15px; }
+.gate-card button[hidden] { display: none; }
+.gate-card .gate-main { background: var(--ink); color: #fff; }
+
+body.guest #bell, body.guest .grip, body.guest .plan-tabs, body.guest .plan-add, body.guest .plan-foot { display: none; }
+body.guest .col, body.guest .dial-btn { cursor: default; }
