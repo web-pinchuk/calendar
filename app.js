@@ -50,6 +50,8 @@
       accMailPh: 'name@gmail.com', accAdd: 'Add', accCopy: 'Copy link', accCopied: 'Link copied', accRemove: 'Remove access',
       accNone: 'Nobody has access yet.', accBadMail: 'Enter a full email address', accHas: 'This email is already in the list',
       accOwn: 'This is your own email', accSaved: 'Access saved', accGone: 'Access removed',
+      accInvite: 'Send the invitation', invSubject: 'Access to my work calendar',
+      invBody: (link, mail, name) => `Hello!\n\nI have given you view access to my work calendar.\n\nOpen it here: ${link}\nSign in with this Google account: ${mail}\n\n${name}`,
       viewOnly: 'View only', gateTitle: 'Shared calendar', gateSignIn: 'Sign in with the Google account that was given access.',
       gateLoading: 'Opening the calendar…', gateDenied: m => 'No access for ' + m + '. Ask the owner to add this email.',
       gateError: 'Could not open the calendar. Try again later.', gateOther: 'Use another account',
@@ -102,6 +104,8 @@
       accMailPh: 'name@gmail.com', accAdd: 'Додати', accCopy: 'Скопіювати посилання', accCopied: 'Посилання скопійовано', accRemove: 'Забрати доступ',
       accNone: 'Доступу ще ні в кого немає.', accBadMail: 'Введіть повну адресу пошти', accHas: 'Ця пошта вже є у списку',
       accOwn: 'Це ваша власна пошта', accSaved: 'Доступ збережено', accGone: 'Доступ забрано',
+      accInvite: 'Надіслати запрошення', invSubject: 'Доступ до мого робочого календаря',
+      invBody: (link, mail, name) => `Вітаю!\n\nЯ надав вам доступ на перегляд мого робочого календаря.\n\nВідкрити: ${link}\nУвійдіть через цей Google-акаунт: ${mail}\n\n${name}`,
       viewOnly: 'Лише перегляд', gateTitle: 'Спільний календар', gateSignIn: 'Увійдіть через Google-акаунт, якому надали доступ.',
       gateLoading: 'Відкриваю календар…', gateDenied: m => 'Немає доступу для ' + m + '. Попросіть власника додати цю пошту.',
       gateError: 'Не вдалося відкрити календар. Спробуйте пізніше.', gateOther: 'Інший акаунт',
@@ -1703,37 +1707,11 @@
       };
       html += `<div class="st-sec"><div class="st-h"><h4>${L().stByDay}</h4><span class="st-lg"><i></i>${L().stDone}<i class="p"></i>${L().stPlanned}</span></div>
         <div class="st-chart"><div class="st-y"><span>${top / 60}</span><span>${top / 120}</span><span>0</span></div><div class="st-cols">${cols.map(column).join('')}</div></div></div>`;
-
-      // Projects of the month: bars share one scale, the share of the month's hours beside them.
-      const most = list[0].done + list[0].plan, sum = done + ahead;
-      const row = x => {
-        const c = tone(x.p), total = x.done + x.plan;
-        const text = `<b>${esc(x.p.title)}</b><span>${L().stDone}<em>${hrs(x.done)}</em></span><span>${L().stPlanned}<em>${hrs(x.plan)}</em></span>`;
-        const part = (min, bg) => (min > 0 ? `<i style="width:${(min / most * 100).toFixed(2)}%;background:${bg}"></i>` : '');
-        return `<div class="st-row" data-tip="${esc(text)}"><i class="st-dot" style="background:${c.arc}"></i><span class="st-name">${esc(x.p.title)}</span>
-          <span class="st-val">${Math.round(total / sum * 100)}% · <b>${hrs(total)}</b></span><div class="st-bar">${part(x.done, c.arc)}${part(x.plan, c.soft)}</div></div>`;
-      };
-      html += `<div class="st-sec"><div class="st-h"><h4>${L().stMonth}</h4><small>${hrs(sum)}</small></div>${list.map(row).join('')}</div>`;
     }
 
     // ----- all projects ever saved in the calendar -----
     if (!all.length) html += `<p class="st-empty">${L().stNoData}</p>`;
     else {
-      const card = p => {
-        const c = tone(p), total = p.done + p.plan, t = p.task;
-        const end = t ? endDate(t) : p.last;
-        const left = Math.round((fromKey(end) - fromKey(todayK)) / 864e5);
-        const state = t ? (left >= 0 ? `${L().stInPlan} ${dm(end)} · ${L().stDaysLeft(left)}` : L().planOver)
-          : p.plan > 0 ? `${L().stUntil} ${dm(p.last)}` : `${L().stFinished} ${dm(p.last)}`;
-        const period = p.first === p.last ? dm(p.first) : `${dm(p.first)} – ${dm(p.last)}`;
-        const value = p.plan > 0 ? `<b>${num(p.done)}</b> ${L().stOf} ${hrs(total)}` : `<b>${num(total)}</b> ${unit}`;
-        return `<div class="st-proj"><i class="st-sw" style="background:${c.soft}"></i>
-          <div class="st-main"><b>${esc(p.title)}</b><small>${period} · ${L().stDays(p.days.size)}</small><small>${state}</small></div>
-          <div class="st-num">${value}</div><div class="st-bar">${p.done > 0 ? `<i style="width:${(p.done / total * 100).toFixed(2)}%;background:${c.arc}"></i>` : ''}</div></div>`;
-      };
-      const order = all.slice().sort((a, b) => !!b.task - !!a.task || (a.last < b.last ? 1 : a.last > b.last ? -1 : 0) || b.done + b.plan - a.done - a.plan);
-      html += `<div class="st-sec"><div class="st-h"><h4>${L().stAll}</h4><small>${order.length} · ${hrs(all.reduce((s, p) => s + p.done + p.plan, 0))}</small></div>${order.map(card).join('')}</div>`;
-
       // ----- activity: done hours of every day over the last 26 weeks, one hue from light to dark -----
       const dayDone = new Map();
       all.forEach(p => p.days.forEach((v, k) => { if (v.done > 0) dayDone.set(k, (dayDone.get(k) || 0) + v.done); }));
@@ -1833,7 +1811,13 @@
       rm.setAttribute('aria-label', `${L().accRemove}: ${mail}`);
       rm.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>';
       rm.onclick = () => setViewers(viewers.filter(v => v !== mail), L().accGone);
-      row.append(el('span', '', mail), rm);
+      const inv = el('button', 'acc-rm acc-inv');
+      inv.type = 'button';
+      inv.title = L().accInvite;
+      inv.setAttribute('aria-label', `${L().accInvite}: ${mail}`);
+      inv.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="m4 8 8 5.5L20 8"/></svg>';
+      inv.onclick = () => invite(mail);
+      row.append(el('span', '', mail), inv, rm);
       return row;
     }) : [el('p', 'acc-none', L().accNone)]));
   }
@@ -1856,7 +1840,14 @@
     if (mail === (user.email || '').toLowerCase()) { accMsg(L().accOwn); return; }
     if (viewers.includes(mail)) { accMsg(L().accHas); return; }
     $('accMail').value = '';
+    invite(mail); // opened right in the click, so the browser does not block the new tab
     setViewers([...viewers, mail], L().accSaved);
+  }
+  // The invitation is a ready letter in the owner's Gmail (the account they are signed in with):
+  // recipient, subject and text are filled in, one press on Send is left.
+  function invite(mail) {
+    const q = new URLSearchParams({ view: 'cm', fs: '1', authuser: user.email, to: mail, su: L().invSubject, body: L().invBody(shareLink(), mail, user.displayName || user.email) });
+    window.open(`https://mail.google.com/mail/?${q}`, '_blank', 'noopener');
   }
 
   // ----- Viewer side: the screen shown until the shared calendar may be opened -----
