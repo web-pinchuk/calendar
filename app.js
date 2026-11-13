@@ -115,12 +115,7 @@
   // One-time data setup: drop the old demo events, add the work blocks for today.
   if (!load('cd.v2', false)) {
     const DEMO = ['Планування тижня', 'Тренування', 'Дизайн-сесія', 'Англійська', 'Обід з друзями', 'Огляд проєкту', 'Прогулянка'];
-    const k = key(sel);
-    events = events.filter(e => !DEMO.includes(e.title)).concat([
-      { id: uid(), date: k, start: 540, end: 840, title: 'Робота-1', color: 'blue' },
-      { id: uid(), date: k, start: 840, end: 960, title: 'Робота-2', color: 'purple' },
-      { id: uid(), date: k, start: 960, end: 1020, title: 'Робота-3', color: 'teal' },
-    ]);
+    events = events.filter(e => !DEMO.includes(e.title)); // a new browser starts with an empty calendar
     save('cd.v2', true);
     save('cd.v3', true);
   }
@@ -139,6 +134,14 @@
     const preset = { 'Робота-2': 'purple', 'Робота-3': 'teal' };
     events.forEach(e => { if (preset[e.title] && e.color === 'blue') e.color = preset[e.title]; });
     save('cd.v3', true);
+  }
+  // Earlier versions filled every new browser with three sample blocks dated that day.
+  // Remove those untouched copies once (the originals were created on 2026-11-10).
+  if (!load('cd.v4', false)) {
+    const SAMPLE = { 'Робота-1': '540-840', 'Робота-2': '840-960', 'Робота-3': '960-1020' };
+    events = events.filter(e => !(e.date !== '2026-11-10' && !e.onDial && e.slots.length === 1
+      && SAMPLE[e.title] === `${e.slots[0].start}-${e.slots[0].end}`));
+    save('cd.v4', true);
   }
   const saveEvents = () => save('cd.events', events);
   const saveLunch = () => save('cd.lunch', lunch);
