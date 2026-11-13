@@ -2284,6 +2284,19 @@
     $('accCopy').addEventListener('click', () => track('share_link_copy'));
   }
 
+  // ---------- Session recordings (Microsoft Clarity, only when CLARITY_ID is set) ----------
+  // Shows where people click and move. All text on the page is masked (data-clarity-mask on
+  // <body>), so project names and emails never reach the recordings.
+  const CLARITY_ID = /^[a-z0-9]{6,16}$/.test(window.CLARITY_ID || '') ? window.CLARITY_ID : '';
+  if (CLARITY_ID) {
+    window.clarity = window.clarity || function () { (window.clarity.q = window.clarity.q || []).push(arguments); };
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = `https://www.clarity.ms/tag/${CLARITY_ID}`;
+    document.head.append(s);
+    window.clarity('set', 'calendar_mode', GUEST ? 'shared' : 'own');
+  }
+
   // ---------- Wiring ----------
   document.querySelectorAll('#seg button').forEach(b => { b.onclick = () => select(sel, b.dataset.view); });
   $('prev').onclick = () => shift(-1);
