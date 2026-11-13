@@ -90,6 +90,7 @@
     { id: 'purple', soft: '#cdbcfa', arc: '#8a5be8' },
     { id: 'coral', soft: '#fbb9a8', arc: '#f0623e' },
     { id: 'teal', soft: '#a6e6e1', arc: '#22b8b0' },
+    { id: 'neutral', soft: '#e9eaee', arc: '#9a9da4' }, // lunch, rest: drawn hatched and kept off the circle
   ];
   const COLOR = Object.fromEntries(PALETTE.map(c => [c.id, c]));
   const colorOf = e => COLOR[e.color] || PALETTE[0];
@@ -157,6 +158,7 @@
     toSlots(e);
   });
   toSlots(lunch);
+  if (!lunch.v) { lunch.color = 'neutral'; lunch.v = 2; } // lunch is a neutral break, not a project colour
   if (!load('cd.v3', false)) {
     const preset = { 'Робота-2': 'purple', 'Робота-3': 'teal' };
     events.forEach(e => { if (preset[e.title] && e.color === 'blue') e.color = preset[e.title]; });
@@ -232,7 +234,7 @@
         if (k === selK) { b.classList.add('sel'); row.classList.add('cur'); }
         // Up to three dots: the projects of that day (the daily lunch is not counted).
         const dots = el('em', 'dots');
-        projectsOn(k, false).slice(0, 3).forEach(e => { const i = el('i'); i.style.background = colorOf(e).arc; dots.append(i); });
+        projectsOn(k, false).filter(e => e.color !== 'neutral').slice(0, 3).forEach(e => { const i = el('i'); i.style.background = colorOf(e).arc; dots.append(i); });
         b.append(dots);
         b.onclick = () => select(day);
         row.append(b);
@@ -320,6 +322,11 @@
   const yOf = min => (min - VS) / 60 * H;
   const blockHeight = (s, e) => Math.max((e - Math.max(s, VS)) / 60 * H, 16);
 
+  // 12-hour clock without AM/PM: 09:00 ... 12:00, 01:00 ...
+  const fmt12 = m => `${pad(Math.floor(m / 60) % 12 || 12)}:${pad(m % 60)}`;
+  // Fill a block or swatch with a project colour; the neutral one (lunch, rest) is hatched.
+  const paint = (node, c) => { node.style.background = c.soft; node.classList.toggle('neutral', c.id === 'neutral'); };
+
   function renderGrid() {
     const body = $('body');
     const days = view === 'day' ? [sel] : Array.from({ length: 7 }, (_, i) => addDays(weekStart(sel), i));
@@ -335,17 +342,16 @@
     const now = new Date(), todayK = key(now);
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const showNow = nowMin >= VS && nowMin <= VE && days.some(d => key(d) === todayK);
-    const ampm = () => 'AM'; // the scale is 12-hour without PM: 13:00 reads "1 AM"
     for (let h = VS / 60; h <= VE / 60; h += step) {
-      if (showNow && Math.abs(h * 60 - nowMin) / 60 * H < 15) continue; // the "now" badge takes this place
-      const s = el('span', '', `${h % 12 || 12} ${ampm(h)}`);
+      if (showNow && Math.abs(h * 60 - nowMin) / 60 * H < 13) continue; // the "now" label takes this place
+      const s = el('span', '', fmt12(h * 60));
       s.style.top = `${yOf(h * 60)}px`;
       hours.append(s);
     }
     if (showNow) {
-      const badge = el('span', 'nowbadge', `${now.getHours() % 12 || 12}:${pad(now.getMinutes())} ${ampm(now.getHours())}`);
-      badge.style.top = `${yOf(nowMin)}px`;
-      hours.append(badge);
+      const label = el('span', 'nowlabel', fmt12(nowMin));
+      label.style.top = `${yOf(nowMin)}px`;
+      hours.append(label);
     }
     grid.append(hours);
 
@@ -353,14 +359,7 @@
       const k = key(d);
       const col = el('div', 'col');
       col.dataset.date = k;
-      if (k === todayK) {
-        col.classList.add('is-today');
-        if (showNow) {
-          const line = el('div', 'nowline');
-          line.style.top = `${yOf(nowMin)}px`;
-          col.append(line);
-        }
-      }
+      if (k === todayK) col.classList.add('is-today');
       layout(blocksOn(k)).forEach(({ blk, c, n }) => {
         const e = blk.e;
         const b = el('button', 'ev');
@@ -368,15 +367,19 @@
         const h = blockHeight(blk.start, blk.end);
         b.classList.toggle('short', h < 48);
         b.classList.toggle('active', k === todayK && e.id === timer.sel);
-        b.style.background = colorOf(e).soft;
         b.classList.toggle('done', !!e.onDial);
+        paint(b, colorOf(e));
         b.style.top = `${yOf(Math.max(blk.start, VS))}px`;
         b.style.height = `${h}px`;
         b.style.left = `${c / n * 100}%`;
         b.style.width = `${100 / n}%`;
-        b.append(el('strong', '', e.title), el('span', '', `${hm(blk.start)} - ${hm(blk.end)}`));
+        // Grips: visible handles on the top and bottom edges for stretching the block.
+        b.append(el('strong', '', e.title), el('span', '', `${hm(blk.start)} - ${hm(blk.end)}`), el('i', 'grip top'), el('i', 'grip bottom'));
         b.title = `${e.title}\n${e.slots.map(s => `${hm(s.start)} – ${hm(s.end)}`).join('\n')}`;
-        b.onpointerdown = ev => startDrag(ev, blk, b);
+        b.onpointerdown = ev => {
+          const g = ev.target.classList;
+          startDrag(ev, blk, b, g.contains('grip') ? (g.contains('top') ? 'top' : 'bottom') : 'move');
+        };
         b.onclick = ev => {
           ev.stopPropagation();
           if (justActed()) return;
@@ -391,20 +394,69 @@
       };
       grid.append(col);
     });
+    if (showNow) { // current time: a dot and a thin line across the whole grid
+      const line = el('div', 'nowline');
+      line.style.top = `${yOf(nowMin)}px`;
+      grid.append(line);
+    }
 
     body.replaceChildren(grid);
   }
 
-  // Drag the middle of a block to move it, its top/bottom edge to stretch it (15-min steps).
-  function startDrag(ev, blk, b) {
-    if (ev.button !== 0 || !pop.hidden || justActed()) return;
+  // A planner block changed by hand becomes part of the plan: an exact-time task takes the new
+  // time, a flexible project keeps this block where it is (pinned) on the next planning run.
+  function manualEdit(e) {
+    const t = tasks.find(x => x.id === e.plan);
+    if (!t) return;
+    if (isFixed(t)) {
+      t.date = e.date; t.from = e.slots[0].start; t.to = e.slots[0].end;
+      saveTasks();
+    } else e.pin = true;
+  }
+
+  // After a block was stretched or moved, the other projects of that day make room instead of
+  // standing side by side: later ones slide down, earlier ones slide up (lunch is stepped over).
+  function settleDay(k, anchor) {
+    const items = [];
+    events.forEach(e => { if (e.date === k) e.slots.forEach(s => { if (s !== anchor) items.push({ e, s }); }); });
+    const walls = lunch.on && planCfg.days[dow(fromKey(k))] ? lunch.slots : [];
+    const moved = new Set();
+    const place = (it, start) => {
+      const len = it.s.end - it.s.start;
+      if (start !== it.s.start) moved.add(it.e);
+      it.s.start = start; it.s.end = start + len;
+    };
+    let edge = anchor.end;
+    items.filter(it => it.s.start >= anchor.start).sort((a, b) => a.s.start - b.s.start).forEach(it => {
+      const len = it.s.end - it.s.start;
+      let start = Math.max(it.s.start, edge);
+      if (start !== it.s.start) walls.forEach(w => { if (start < w.end && start + len > w.start) start = w.end; });
+      place(it, Math.min(start, Math.max(DAY_END - len, it.s.start))); // never past midnight
+      edge = Math.max(edge, it.s.end);
+    });
+    edge = anchor.start;
+    items.filter(it => it.s.start < anchor.start).sort((a, b) => b.s.end - a.s.end).forEach(it => {
+      const len = it.s.end - it.s.start;
+      let end = Math.min(it.s.end, edge);
+      if (end !== it.s.end) walls.forEach(w => { if (end - len < w.end && end > w.start) end = w.start; });
+      place(it, Math.max(end, Math.min(DAY_START + len, it.s.end)) - len); // never before the day starts
+      edge = Math.min(edge, it.s.start);
+    });
+    moved.forEach(e => {
+      e.slots.sort((a, b) => a.start - b.start);
+      const t = e.plan && tasks.find(x => x.id === e.plan);
+      if (t && isFixed(t)) manualEdit(e); // an exact-time task follows its block
+    });
+  }
+
+  // Drag the middle of a block to move it, a grip on its top/bottom edge to stretch it (15-min steps).
+  function startDrag(ev, blk, b, mode) {
+    if (ev.button !== 0) return;
     const e = blk.e;
-    const r = b.getBoundingClientRect();
-    const y = ev.clientY - r.top, edge = Math.min(7, r.height / 4);
-    const mode = y < edge ? 'top' : y > r.height - edge ? 'bottom' : 'move';
     const st = { start: blk.start, end: blk.end, date: e.date, moved: false };
     const x0 = ev.clientX, y0 = ev.clientY;
     b.setPointerCapture(ev.pointerId);
+    if (mode !== 'move') b.classList.add(`resize-${mode}`); // shows the edge being pulled
 
     const move = m => {
       const dy = m.clientY - y0;
@@ -417,20 +469,20 @@
         b.style.width = '100%';
       }
       const dmin = Math.round(dy / H * 60 / 15) * 15;
-      if (mode === 'top') st.start = clamp(blk.start + dmin, VS, blk.end - 15);
-      else if (mode === 'bottom') st.end = clamp(blk.end + dmin, Math.max(blk.start, VS) + 15, VE);
+      if (mode === 'top') st.start = clamp(blk.start + dmin, DAY_START, blk.end - 15);
+      else if (mode === 'bottom') st.end = clamp(blk.end + dmin, blk.start + 15, DAY_END);
       else {
         const len = blk.end - blk.start;
-        st.start = clamp(blk.start + dmin, VS, VE - len);
+        st.start = clamp(blk.start + dmin, DAY_START, DAY_END - len);
         st.end = st.start + len;
         if (!e.daily) {
           const col = document.elementsFromPoint(m.clientX, m.clientY).find(n => n.classList.contains('col'));
           if (col && col !== b.parentNode) { col.append(b); st.date = col.dataset.date; }
         }
       }
-      const h = blockHeight(st.start, st.end);
+      const h = Math.max((st.end - st.start) / 60 * H, 16);
       b.classList.toggle('short', h < 48);
-      b.style.top = `${yOf(Math.max(st.start, VS))}px`;
+      b.style.top = `${yOf(st.start)}px`;
       b.style.height = `${h}px`;
       b.querySelector('span').textContent = `${hm(st.start)} - ${hm(st.end)}`;
     };
@@ -438,6 +490,7 @@
       b.removeEventListener('pointermove', move);
       b.removeEventListener('pointerup', up);
       b.removeEventListener('pointercancel', up);
+      b.classList.remove('resize-top', 'resize-bottom');
       if (!st.moved) return;
       dragging = false;
       dragEndedAt = Date.now();
@@ -447,13 +500,18 @@
       } else {
         const real = events.find(x => x.id === e.id);
         if (real) {
-          real.slots[blk.i] = { start: st.start, end: st.end };
+          const slot = real.slots[blk.i] = { start: st.start, end: st.end };
           real.date = st.date; // moving one block to another day moves the whole project
+          if (real.plan) manualEdit(real);
+          settleDay(real.date, slot);
+          real.slots.sort((a, b) => a.start - b.start);
           saveEvents();
         }
       }
+      planResult = null;
       render();
       renderTimer();
+      updatePlanInfo();
       checkReminders();
     };
     b.addEventListener('pointermove', move);
@@ -477,7 +535,7 @@
       const list = projectsOn(k, false); // the daily lunch would only add noise here
       list.slice(0, 2).forEach(e => {
         const chip = el('span', 'chip', `${hm(firstStart(e))} ${e.title}`);
-        chip.style.background = colorOf(e).soft;
+        paint(chip, colorOf(e));
         cell.append(chip);
       });
       if (list.length > 2) cell.append(el('span', 'more', L().more(list.length - 2)));
@@ -515,7 +573,7 @@
       const b = el('button');
       b.type = 'button';
       b.dataset.color = c.id;
-      b.style.background = c.soft;
+      paint(b, c);
       b.setAttribute('aria-label', c.id);
       b.onclick = () => { setColor(c.id); $('fColors').hidden = true; };
       $('fColors').append(b);
@@ -531,7 +589,7 @@
   }
   function setColor(id) {
     draft.color = id;
-    $('fColor').style.background = COLOR[id].soft;
+    paint($('fColor'), COLOR[id]);
     document.querySelectorAll('#fColors button').forEach(b => b.classList.toggle('on', b.dataset.color === id));
     if (ghost) ghost.style.borderColor = COLOR[id].arc;
   }
@@ -634,14 +692,18 @@
     const slots = draft.slots.map(s => ({ ...s })).sort((a, b) => a.start - b.start);
     if (!title) return;
     if (draft.id === LUNCH) {
-      lunch = { on: lunch.on, slots, onDial, color: draft.color, title: title === L().lunch ? '' : title };
+      lunch = { on: lunch.on, v: 2, slots, onDial, color: draft.color, title: title === L().lunch ? '' : title };
       saveLunch();
       closeEditor();
       render();
     } else {
-      const e = { id: draft.id || uid(), title, date: $('fDate').value, slots, onDial, color: draft.color, ...(draft.plan ? { plan: draft.plan } : {}) };
+      const e = { id: draft.id || uid(), title, date: $('fDate').value, slots, onDial, color: draft.color, ...(draft.plan ? { plan: draft.plan, pin: !!draft.pin } : {}) };
       if (!e.date) return;
       events = events.filter(x => x.id !== e.id).concat(e);
+      if (e.plan) manualEdit(e); // a hand-edited planner block stays in the plan as edited
+      e.slots.slice().forEach(slot => settleDay(e.date, slot)); // neighbours make room
+      e.slots.sort((a, b) => a.start - b.start);
+      planResult = null;
       saveEvents();
       if (e.date === key(new Date())) { timer.sel = e.id; saveTimer(); }
       select(fromKey(e.date));
@@ -744,7 +806,7 @@
   let timer = { day: key(new Date()), sessions: [], run: null, sel: null, mode: '12', half: null, ...load('cd.timer3', {}) };
   timer.mode = '12'; timer.half = null; // the dial is a 12-hour face showing the current half of the day
   function saveTimer() { save('cd.timer3', timer); }
-  const todayProjects = () => projectsOn(key(new Date()));
+  const todayProjects = () => projectsOn(key(new Date())).filter(e => e.color !== 'neutral'); // lunch and rest are not projects
   const R_OUT = 108, R_IN = 72, R_STEP = 12;
   const NS = 'http://www.w3.org/2000/svg';
   const svgEl = (tag, attrs, parent) => {
@@ -848,11 +910,14 @@
     const list = todayProjects();
     if (timer.run && !list.some(e => e.id === timer.run.id)) timer.run = null;
 
-    // The dial is one 12-hour face for the whole day: 13:00-17:00 is drawn at 1:00-5:00.
-    const span = 720;
+    // The circle is the working day: it starts at the top with the first working hour and closes
+    // with the last one (stretched when today's blocks lie outside the schedule).
+    let from = planCfg.from, to = planCfg.to;
+    blocksOn(key(new Date())).forEach(b => { from = Math.min(from, Math.floor(b.start / 60) * 60); to = Math.max(to, Math.ceil(b.end / 60) * 60); });
+    const span = Math.max(to - from, 60);
     // Counter of all hours spent today (everything drawn on the circle).
     $('dialHalf').textContent = `${L().total} ${fmt(list.reduce((sum, e) => sum + dialTotal(e), 0))}`;
-    ['12:00', '3:00', '6:00', '9:00'].forEach((t, i) => { ticks[i].textContent = t; });
+    ticks.forEach((tick, i) => { tick.textContent = fmt12(from + span * i / 4); });
 
     const step = list.length > 1 ? Math.min(R_STEP, (R_OUT - R_IN) / (list.length - 1)) : 0;
     const radius = i => R_OUT - i * step;
@@ -862,15 +927,16 @@
       list.forEach((_, i) => svgEl('circle', { class: 'ring', cx: 150, cy: 150, r: radius(i) }, ringLayer));
     }
 
-    const angle = m => (m % span) / span * 2 * Math.PI - Math.PI / 2;
+    const angle = m => (m - from) / span * 2 * Math.PI - Math.PI / 2;
     const pt = (r, a) => `${(150 + r * Math.cos(a)).toFixed(1)} ${(150 + r * Math.sin(a)).toFixed(1)}`;
     let markup = '';
     const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
     list.forEach((e, i) => {
       const r = radius(i), c = colorOf(e).arc;
       segmentsOf(e).forEach(s => {
-        if (s.b < s.a || (s.b === s.a && !s.live)) return;
-        const a1 = angle(s.a), a2 = a1 + Math.min((s.b - s.a) / span * 2 * Math.PI, 2 * Math.PI - 0.002);
+        const a = clamp(s.a, from, from + span), b = clamp(s.b, from, from + span); // only the part inside the working day
+        if (b < a || (b === a && !s.live)) return;
+        const a1 = angle(a), a2 = a1 + Math.min((b - a) / span * 2 * Math.PI, 2 * Math.PI - 0.002);
         markup += `<path class="arc" d="M${pt(r, a1)} A${r} ${r} 0 ${a2 - a1 > Math.PI ? 1 : 0} 1 ${pt(r, a2)}" stroke="${c}" style="filter:drop-shadow(0 0 4px ${c})"/>`;
         // White dot: only on the selected project, and only until that piece of work is finished.
         if (e.id === timer.sel && (s.live || (s.planned && s.b > nowMin))) {
@@ -933,17 +999,23 @@
     return Math.max(0, workdays(from, t.deadline) * RATE[t.diff] - doneToday);
   }
 
-  function splitPlanned() {
+  // What stays in the calendar when the plan is rebuilt: manual projects, planner blocks that have
+  // already started, and planner blocks the user edited by hand (pinned). `pinned` = their minutes still ahead.
+  function splitPlanned(keepPinned = true) {
     const today = key(new Date()), now = nowMinutes();
-    const kept = [], done = {};
+    const kept = [], pinned = {};
+    const total = slots => slots.reduce((sum, s) => sum + s.end - s.start, 0);
     events.forEach(e => {
       if (!e.plan) { kept.push(e); return; }
+      if (e.pin && keepPinned && tasks.some(t => t.id === e.plan)) {
+        kept.push(e);
+        pinned[e.plan] = (pinned[e.plan] || 0) + total(e.date > today ? e.slots : e.date === today ? e.slots.filter(s => s.start >= now) : []);
+        return;
+      }
       const slots = e.date > today ? [] : e.date === today ? e.slots.filter(s => s.start < now) : e.slots;
-      if (!slots.length) return;
-      kept.push({ ...e, slots });
-      done[e.plan] = (done[e.plan] || 0) + slots.reduce((sum, s) => sum + s.end - s.start, 0);
+      if (slots.length) kept.push({ ...e, slots });
     });
-    return { kept, done };
+    return { kept, pinned };
   }
 
   // Free working intervals of a day: working hours minus lunch and fixed projects (with a break around those).
@@ -962,7 +1034,7 @@
   }
 
   function schedule(even) {
-    const { kept } = splitPlanned();
+    const { kept, pinned } = splitPlanned();
     const today = fromKey(key(new Date())), todayK = key(today), now = nowMinutes();
     const out = [], info = {};
 
@@ -980,7 +1052,7 @@
 
     const byDeadline = (a, b) => a.t.deadline.localeCompare(b.t.deadline) || b.t.diff - a.t.diff;
     const list = validTasks().filter(t => !isFixed(t)).map(t => {
-      const rem = autoLeft(t);
+      const rem = Math.max(0, autoLeft(t) - (pinned[t.id] || 0)); // hand-placed blocks already cover part of it
       return { t, rem, late: 0, last: null, nothing: rem === 0, over: t.deadline < todayK, quota: 0, placed: 0 };
     }).sort(byDeadline);
     const lastDeadline = list.reduce((m, x) => (x.t.deadline > m ? x.t.deadline : m), todayK);
@@ -1062,7 +1134,7 @@
   }
 
   function clearPlan() {
-    events = splitPlanned().kept;
+    events = splitPlanned(false).kept;
     saveEvents();
     planResult = null;
     render();
@@ -1134,12 +1206,25 @@
     sw.type = 'button';
     sw.title = L().color;
     sw.setAttribute('aria-label', L().color);
-    sw.style.background = colorOf(t).soft;
-    sw.onclick = () => { // next colour of the palette
-      t.color = PALETTE[(PALETTE.findIndex(c => c.id === t.color) + 1) % PALETTE.length].id;
-      sw.style.background = colorOf(t).soft;
-      edited();
-    };
+    paint(sw, colorOf(t));
+    // The same colour row as in the project popover, opened by the swatch.
+    const colors = el('div', 'colors task-colors');
+    colors.hidden = true;
+    PALETTE.forEach(c => {
+      const b = el('button', c.id === t.color ? 'on' : '');
+      b.type = 'button';
+      b.setAttribute('aria-label', c.id);
+      paint(b, c);
+      b.onclick = () => {
+        t.color = c.id;
+        paint(sw, c);
+        [...colors.children].forEach(x => x.classList.toggle('on', x === b));
+        colors.hidden = true;
+        edited();
+      };
+      colors.append(b);
+    });
+    sw.onclick = () => { colors.hidden = !colors.hidden; };
     const name = el('input', 't-name');
     name.type = 'text'; name.maxLength = 80; name.value = t.title; name.placeholder = L().titlePh;
     name.setAttribute('aria-label', L().planName);
@@ -1192,7 +1277,7 @@
     const note = el('div', 'task-note');
     note.dataset.id = t.id;
     buildFields();
-    row.append(sw, name, mode, rm, fields, note);
+    row.append(sw, name, mode, rm, colors, fields, note);
     return row;
   }
 
@@ -1332,6 +1417,7 @@
     events.forEach(toSlots);
     lunch = { ...lunch, ...(remote.lunch || {}) };
     toSlots(lunch);
+    if (!lunch.v) { lunch.color = 'neutral'; lunch.v = 2; }
     timer = { ...timer, ...(remote.timer || {}), mode: '12', half: null };
     if (Array.isArray(remote.tasks)) tasks = remote.tasks;
     if (remote.planCfg) planCfg = { ...planCfg, ...remote.planCfg };
