@@ -541,3 +541,11 @@ button { cursor: pointer; border: 0; background: none; }
   .task { grid-template-areas: "sw name rm" "mode mode mode" "colors colors colors" "fields fields fields" "note note note"; }
   .t-mode { margin-top: 10px; }
 }
+
+/* ================= v15: planner card accent ================= */
+.foot .plan-card { flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; padding: 10px 12px 10px 10px; border-color: rgba(181, 146, 245, .35); background: linear-gradient(135deg, rgba(181, 146, 245, .2), rgba(255, 255, 255, .05) 70%); }
+.foot .plan-card:hover { background: linear-gradient(135deg, rgba(181, 146, 245, .32), rgba(255, 255, 255, .09) 70%); border-color: rgba(181, 146, 245, .6); }
+.plan-ico { flex: none; width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; background: var(--violet); color: #1b1230; box-shadow: 0 6px 18px rgba(181, 146, 245, .3); }
+.plan-txt { min-width: 0; display: flex; flex-direction: column; }
+.plan-card .head-day { display: block; font-size: 15px; font-weight: 600; }
+.plan-card .head-date { margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
