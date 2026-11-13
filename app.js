@@ -61,6 +61,7 @@
       alertNames: { remind: 'Before a block', start: 'Block starts', end: 'Block ends', lunch: 'Lunch', dayEnd: 'End of the working day', timer: 'Timer Start / Stop', visit: 'Invited person is online' },
       sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'No sound' },
       aStart: 'Time to start', aEnd: 'Finished', aLunch: 'Lunch time', aDayEnd: 'The working day is over', aDayEndBody: 'Good job. Time to rest.', aVisit: 'Your calendar is being viewed',
+      tabCal: 'Calendar', tabTimer: 'Timer',
       menuLang: 'Language', menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
       accInvite: 'Send the invitation', invSubject: 'Access to my work calendar',
       invBody: (link, mail, name, mine) => `Hello!\n\nI have given you view access to my work calendar.\n\nOpen it here: ${link}\nSign in with this Google account: ${mail}${mine ? '\n\nYou can also keep your own calendar here: ' + mine : ''}\n\n${name}`,
@@ -127,6 +128,7 @@
       alertNames: { remind: 'Перед блоком', start: 'Початок блоку', end: 'Кінець блоку', lunch: 'Обід', dayEnd: 'Кінець робочого дня', timer: 'Таймер Старт / Стоп', visit: 'Запрошена людина онлайн' },
       sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'Без звуку' },
       aStart: 'Час починати', aEnd: 'Завершено', aLunch: 'Час обідати', aDayEnd: 'Робочий день закінчився', aDayEndBody: 'Гарна робота. Час відпочити.', aVisit: 'Ваш календар переглядають',
+      tabCal: 'Календар', tabTimer: 'Таймер',
       menuLang: 'Мова', menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
       accInvite: 'Надіслати запрошення', invSubject: 'Доступ до мого робочого календаря',
       invBody: (link, mail, name, mine) => `Вітаю!\n\nЯ надав вам доступ на перегляд мого робочого календаря.\n\nВідкрити: ${link}\nУвійдіть через цей Google-акаунт: ${mail}${mine ? '\n\nВи також можете вести власний календар тут: ' + mine : ''}\n\n${name}`,
@@ -195,6 +197,7 @@
       alertNames: { remind: 'Перед блоком', start: 'Начало блока', end: 'Конец блока', lunch: 'Обед', dayEnd: 'Конец рабочего дня', timer: 'Таймер Старт / Стоп', visit: 'Приглашённый человек онлайн' },
       sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'Без звука' },
       aStart: 'Пора начинать', aEnd: 'Завершено', aLunch: 'Время обеда', aDayEnd: 'Рабочий день закончился', aDayEndBody: 'Хорошая работа. Пора отдохнуть.', aVisit: 'Ваш календарь просматривают',
+      tabCal: 'Календарь', tabTimer: 'Таймер',
       menuLang: 'Язык', menu: 'Меню', menuNotif: 'Уведомления', menuAccess: 'Добавить человека', on: 'Вкл.', off: 'Выкл.',
       accInvite: 'Отправить приглашение', invSubject: 'Доступ к моему рабочему календарю',
       invBody: (link, mail, name, mine) => `Здравствуйте!\n\nЯ дал вам доступ на просмотр моего рабочего календаря.\n\nОткрыть: ${link}\nВойдите через этот Google-аккаунт: ${mail}${mine ? '\n\nВы также можете вести свой календарь здесь: ' + mine : ''}\n\n${name}`,
@@ -375,7 +378,7 @@
         const dots = el('em', 'dots');
         projectsOn(k, false).filter(e => e.color !== 'neutral').slice(0, 3).forEach(e => { const i = el('i'); i.style.background = colorOf(e).arc; dots.append(i); });
         b.append(dots);
-        b.onclick = () => select(day);
+        b.onclick = () => { select(day); if (compact()) setTab('cal'); };
         row.append(b);
       }
       grid.append(row);
@@ -396,7 +399,8 @@
   function renderTop() {
     $('title').textContent = `${L().months[sel.getMonth()]}, ${sel.getFullYear()}`;
     $('navDate').textContent = view === 'month' ? `${L().months[sel.getMonth()]} ${sel.getFullYear()}` : L().dayDate(sel);
-    document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+    const shown = compact() && view === 'week' ? 'day' : view; // a narrow screen has no week of columns
+    document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.view === shown));
   }
 
   function renderStrip() {
@@ -472,7 +476,7 @@
 
   function renderGrid() {
     const body = $('body');
-    const days = view === 'day' ? [sel] : Array.from({ length: 7 }, (_, i) => addDays(weekStart(sel), i));
+    const days = view === 'day' || compact() ? [sel] : Array.from({ length: 7 }, (_, i) => addDays(weekStart(sel), i));
     viewRange(days);
     H = fitHour();
     const grid = el('div', 'grid');
@@ -721,7 +725,7 @@
 
   function shift(dir) {
     if (view === 'month') select(new Date(sel.getFullYear(), sel.getMonth() + dir, 1));
-    else select(addDays(sel, dir * (view === 'week' ? 7 : 1)));
+    else select(addDays(sel, dir * (view === 'week' || compact() ? 7 : 1)));
   }
 
   // ---------- Project editor ----------
@@ -2488,6 +2492,38 @@
     window.clarity('set', 'calendar_mode', GUEST ? 'shared' : 'own');
   }
 
+  // ---------- Narrow screens: a phone or the browser side panel ----------
+  // The calendar takes the whole screen and shows one day at a time (the strip above picks the
+  // day, the arrows move by a week); the dial, the clock and the month live on a second tab.
+  const narrow = matchMedia('(max-width: 820px)');
+  const compact = () => narrow.matches;
+  function setTab(tab) {
+    document.body.dataset.tab = tab;
+    document.querySelectorAll('#tabbar [data-tab]').forEach(b => {
+      b.classList.toggle('on', b.dataset.tab === tab);
+      b.setAttribute('aria-pressed', b.dataset.tab === tab);
+    });
+    closeEditor();
+    if (tab === 'cal') render(); else renderTimer();
+  }
+  document.querySelectorAll('#tabbar [data-tab]').forEach(b => { b.onclick = () => setTab(b.dataset.tab); });
+  $('tabPlan').onclick = () => $('planCard').click();
+  narrow.addEventListener('change', () => { closeEditor(); render(); renderTimer(); });
+  { // swipe left / right over the day to go to the next / previous one
+    let x0 = 0, y0 = 0, on = false;
+    $('body').addEventListener('touchstart', ev => {
+      on = compact() && view !== 'month' && ev.touches.length === 1 && !ev.target.closest('.ev');
+      if (on) { x0 = ev.touches[0].clientX; y0 = ev.touches[0].clientY; }
+    }, { passive: true });
+    $('body').addEventListener('touchend', ev => {
+      if (!on) return;
+      on = false;
+      const dx = ev.changedTouches[0].clientX - x0, dy = ev.changedTouches[0].clientY - y0;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      dragEndedAt = Date.now(); // the tap that ends the swipe must not open the editor
+      select(addDays(sel, dx < 0 ? 1 : -1));
+    }, { passive: true });
+  }
   // ---------- Wiring ----------
   document.querySelectorAll('#seg button').forEach(b => { b.onclick = () => select(sel, b.dataset.view); });
   $('prev').onclick = () => shift(-1);
