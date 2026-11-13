@@ -851,3 +851,10 @@ body.guest .col, body.guest .dial-btn { cursor: default; }
 .person.online .person-text small { color: #3ddc84; }
 .person-rm { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: rgba(255, 255, 255, .55); }
 .person-rm:hover { background: rgba(255, 255, 255, .08); color: #ff8a70; }
+
+/* ---------- v28: language switch in the header menu ---------- */
+.mi-row { display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 8px 0 12px; color: #fff; font-size: 15px; }
+.mi-row svg { flex: none; color: rgba(255, 255, 255, .7); }
+.mi-row > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mi-row .lang { flex: none; background: rgba(255, 255, 255, .07); }
+.mi-row .lang button { padding: 6px 11px; }
