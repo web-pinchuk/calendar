@@ -45,7 +45,7 @@
 
       <section class="card timer">
         <div class="timer-top">
-          <h2 data-i18n="projects">Today's tasks</h2>
+          <h2 id="dialTitle">Today's tasks</h2>
           <span class="timer-hint" id="dialHalf">Hours 0:00</span>
         </div>
         <div class="dial">
@@ -122,42 +122,56 @@
     </div>
   </form>
 
-  <dialog class="planner" id="planDlg">
+  <dialog class="planner" id="planDlg" data-tab="projects">
     <div class="plan-head">
-      <div>
-        <h3 data-i18n="planner">Planner</h3>
-        <p class="sync-help" data-i18n="planHelp"></p>
-      </div>
+      <h3 data-i18n="planner">Planner</h3>
       <button type="button" class="plan-x" id="planClose" aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     </div>
+    <div class="plan-tabs" id="planTabs" role="tablist">
+      <button type="button" role="tab" data-tab="projects" data-i18n="planProjectsTitle">Projects</button>
+      <button type="button" role="tab" data-tab="schedule" data-i18n="planSchedule">Schedule</button>
+    </div>
     <div class="plan-body">
-      <section class="plan-sec">
-        <h4 data-i18n="planWork">Working time</h4>
-        <div class="plan-days" id="planDays"></div>
-        <div class="plan-opts">
-          <label><span data-i18n="planFrom">From</span><select id="planFrom"></select></label>
-          <label><span data-i18n="planTo">To</span><select id="planTo"></select></label>
-          <label><span data-i18n="planBlock">Focus block</span><select id="planBlock"></select></label>
-          <label><span data-i18n="planGap">Break</span><select id="planGap"></select></label>
-        </div>
-        <div class="plan-lunch">
-          <button type="button" class="plan-toggle" id="planLunch" aria-pressed="false"><i></i><span data-i18n="planLunch">Lunch break</span></button>
-          <select id="planLunchFrom" aria-label="Lunch from"></select>
-          <select id="planLunchTo" aria-label="Lunch to"></select>
-        </div>
-      </section>
-      <section class="plan-sec">
-        <h4 data-i18n="planProjectsTitle">Projects</h4>
+      <section class="plan-pane" data-pane="projects">
         <div id="planTasks"></div>
         <button type="button" class="add-slot" id="planAdd">+ <span data-i18n="planAddTask">Add project</span></button>
       </section>
+      <section class="plan-pane" data-pane="schedule">
+        <div class="plan-sec">
+          <div class="week-head">
+            <h4 id="planWeekLabel"></h4>
+            <div class="week-nav">
+              <button type="button" id="planWeekPrev" aria-label="Previous week"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
+              <button type="button" id="planWeekNext" aria-label="Next week"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
+            </div>
+          </div>
+          <div id="planWeek"></div>
+        </div>
+        <div class="plan-sec">
+          <h4 data-i18n="planUsual">Usual hours</h4>
+          <div class="plan-days" id="planDays"></div>
+          <div class="plan-opts two">
+            <label><span data-i18n="planFrom">From</span><select id="planFrom"></select></label>
+            <label><span data-i18n="planTo">To</span><select id="planTo"></select></label>
+          </div>
+        </div>
+        <div class="plan-sec">
+          <h4 data-i18n="planBreaks">Focus and breaks</h4>
+          <div class="plan-opts two">
+            <label><span data-i18n="planBlock">Focus block</span><select id="planBlock"></select></label>
+            <label><span data-i18n="planGap">Break</span><select id="planGap"></select></label>
+          </div>
+          <div class="plan-lunch">
+            <button type="button" class="plan-toggle" id="planLunch" aria-pressed="false"><i></i><span data-i18n="planLunch">Lunch break</span></button>
+            <select id="planLunchFrom" aria-label="Lunch from"></select>
+            <select id="planLunchTo" aria-label="Lunch to"></select>
+          </div>
+        </div>
+      </section>
     </div>
     <div class="plan-foot">
-      <p class="plan-sum" id="planSum"></p>
-      <div class="sync-actions">
-        <button type="button" id="planClear" data-i18n="planClear">Clear plan</button>
-        <button type="button" class="primary" id="planRun" data-i18n="planRun">Plan</button>
-      </div>
+      <button type="button" class="primary" id="planRun" data-i18n="planRun">Save</button>
+      <button type="button" id="planClear" data-i18n="planClear">Clear plan</button>
     </div>
   </dialog>
 
