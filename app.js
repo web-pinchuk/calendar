@@ -21,7 +21,7 @@
       notifOff: 'Notifications off', notifBlocked: 'Notifications blocked', notifBlockedBody: 'Allow notifications for this site in your browser settings.',
       notifOn: 'Notifications on', notifOnBody: m => `I will remind you ${m} min before each event.`,
       inMin: m => `In ${m} min`, startsNow: 'Starting now', bell: 'Event notifications',
-      appName: 'Calendar', syncLocal: 'This device only',
+      appName: 'Account', syncLocal: 'This device only',
       accTitle: 'Account', accIn: 'Sign in with Google', accOut: 'Sign out', accAs: 'Signed in as', close: 'Close',
       accHelp: 'Sign in with your Google account to keep the calendar in the cloud and open it on any device.',
       accNoConfig: 'Cloud sign-in is not set up yet.', accErrLoad: 'could not load the cloud library',
@@ -46,7 +46,7 @@
       notifOff: 'Сповіщення вимкнено', notifBlocked: 'Сповіщення заблоковано', notifBlockedBody: 'Дозвольте сповіщення для цього сайту в налаштуваннях браузера.',
       notifOn: 'Сповіщення увімкнено', notifOnBody: m => `Нагадаю за ${m} хв до початку кожної події.`,
       inMin: m => `Через ${m} хв`, startsNow: 'Починається зараз', bell: 'Сповіщення про події',
-      appName: 'Календар', syncLocal: 'Лише цей пристрій',
+      appName: 'Акаунт', syncLocal: 'Лише цей пристрій',
       accTitle: 'Акаунт', accIn: 'Увійти через Google', accOut: 'Вийти', accAs: 'Ви ввійшли як', close: 'Закрити',
       accHelp: 'Увійдіть через Google-акаунт, щоб календар зберігався в хмарі й відкривався на будь-якому пристрої.',
       accNoConfig: 'Вхід у хмару ще не налаштовано.', accErrLoad: 'не вдалося завантажити хмарну бібліотеку',
@@ -149,8 +149,9 @@
 
   const lunchOn = k => ({ id: LUNCH, daily: true, date: k, ...lunch, title: lunch.title || L().lunch });
   const firstStart = e => Math.min(...e.slots.map(s => s.start));
-  const isWorkday = k => dow(fromKey(k)) < 5; // lunch is scheduled Monday to Friday only
-  const projectsOn = (k, withLunch = true) => events.filter(e => e.date === k).concat(withLunch && isWorkday(k) ? [lunchOn(k)] : [])
+  const LUNCH_ENABLED = false; // the automatic daily lunch block is switched off: the calendar starts empty
+  const isWorkday = k => dow(fromKey(k)) < 5; // (when enabled) lunch is scheduled Monday to Friday only
+  const projectsOn = (k, withLunch = true) => events.filter(e => e.date === k).concat(LUNCH_ENABLED && withLunch && isWorkday(k) ? [lunchOn(k)] : [])
     .sort((a, b) => firstStart(a) - firstStart(b));
   // One calendar block per time slot of every project of the day.
   const blocksOn = k => projectsOn(k).flatMap(e => e.slots.map((s, i) => ({ e, i, start: s.start, end: s.end })))
