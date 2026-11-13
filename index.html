@@ -199,6 +199,30 @@
     </div>
   </dialog>
 
+  <dialog class="sync ntf" id="ntfDlg">
+    <div class="ntf-body">
+      <div class="ntf-head">
+        <h3 data-i18n="ntfTitle">Notifications and sounds</h3>
+        <button type="button" class="plan-x" id="ntfClose" aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="ntf-sec">
+        <button type="button" class="plan-toggle" id="ntfSys" aria-pressed="false"><i></i><span data-i18n="ntfSys">System notifications</span></button>
+        <p class="sync-help" data-i18n="ntfSysHelp"></p>
+        <button type="button" class="plan-toggle" id="ntfSticky" aria-pressed="false"><i></i><span data-i18n="ntfSticky">Keep on screen until I click</span></button>
+        <label class="ntf-line"><span data-i18n="ntfLead">Remind before a block</span><select id="ntfLead"></select></label>
+        <label class="ntf-line"><span data-i18n="ntfVol">Volume</span><input id="ntfVol" type="range" min="0" max="100" step="5"></label>
+      </div>
+      <div class="ntf-sec">
+        <h4 data-i18n="ntfEvents">What to notify about</h4>
+        <div id="ntfEvents"></div>
+      </div>
+      <div class="ntf-sec" id="ntfInstallBox" hidden>
+        <p class="sync-help" data-i18n="ntfInstallHelp"></p>
+        <button type="button" class="ntf-install" id="ntfInstall" data-i18n="ntfInstall">Install as an app</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog class="sync" id="syncDlg">
     <form id="syncForm" method="dialog">
       <h3 data-i18n="accTitle">Account</h3>
