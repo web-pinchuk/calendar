@@ -9,3 +9,7 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: '51647562460',
   appId: '1:51647562460:web:beb2af1db0c3345b0cea19',
 };
+
+// Address of the Google Apps Script that sends invitation letters from the owner's Gmail
+// (see invite-script.gs). Empty: the site opens a ready letter in Gmail instead.
+window.INVITE_URL = '';
