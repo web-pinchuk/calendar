@@ -25,7 +25,7 @@
             <button type="button" data-lang="en">EN</button>
             <button type="button" data-lang="uk">UA</button>
           </div>
-        <button class="bell cloud" id="cloud" type="button" data-state="off" aria-label="Cloud sync" title="Cloud sync">
+        <button class="bell cloud" id="cloud" type="button" data-state="off" aria-label="Account" title="Account">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96 6 6 0 0 1 11.5 1.5A3.75 3.75 0 0 1 17.25 18.5H7Z"/></svg>
         </button>
         <button class="bell" id="bell" type="button" aria-label="Event notifications" title="Event notifications">
@@ -120,23 +120,20 @@
   </form>
 
   <dialog class="sync" id="syncDlg">
-    <form id="syncForm" autocomplete="off">
-      <h3 data-i18n="syncTitle">Cloud sync (GitHub)</h3>
-      <p class="sync-help" data-i18n="syncHelp"></p>
-      <label><span data-i18n="syncRepo">Private repository</span>
-        <input id="syncRepo" type="text" placeholder="username/calendar-data" spellcheck="false" autocapitalize="off"></label>
-      <label><span data-i18n="syncToken">Access token</span>
-        <input id="syncToken" type="password" placeholder="github_pat_…" autocomplete="off"></label>
+    <form id="syncForm" method="dialog">
+      <h3 data-i18n="accTitle">Account</h3>
+      <p class="sync-help" id="accHelp"></p>
       <p class="sync-status" id="syncStatus" role="status"></p>
       <div class="sync-actions">
-        <button type="button" id="syncOff" data-i18n="syncOff" hidden>Disconnect</button>
-        <button type="button" id="syncClose" data-i18n="cancel">Cancel</button>
-        <button type="submit" class="primary" data-i18n="syncOn">Connect</button>
+        <button type="button" id="accOut" data-i18n="accOut" hidden>Sign out</button>
+        <button type="button" id="syncClose" data-i18n="close">Close</button>
+        <button type="button" class="primary" id="accIn" data-i18n="accIn">Sign in with Google</button>
       </div>
     </form>
   </dialog>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
+  <script src="firebase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
