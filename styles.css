@@ -834,3 +834,6 @@ body.guest .col, body.guest .dial-btn { cursor: default; }
 .mi em { font-style: normal; font-size: 13px; color: rgba(255, 255, 255, .5); }
 .mi.on em, .mi.on svg { color: var(--violet); }
 .mi.out, .mi.out svg { color: #ff8a70; }
+
+/* v26: smaller logo */
+.head .logo { width: 27px; height: 27px; }
