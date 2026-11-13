@@ -22,10 +22,10 @@
       notifOn: 'Notifications on', notifOnBody: m => `I will remind you ${m} min before each event.`,
       inMin: m => `In ${m} min`, startsNow: 'Starting now', bell: 'Event notifications',
       appName: 'Calendar', syncLocal: 'This device only',
-      syncTitle: 'Cloud sync (GitHub)', syncRepo: 'Private repository', syncToken: 'Access token', syncOn: 'Connect', syncOff: 'Disconnect',
-      syncHelp: 'Data is stored in your own private GitHub repository. Paste the same repository and token on every device.',
-      syncIsOff: 'Cloud sync is off', syncIsOk: 'Synced with GitHub', syncIsBusy: 'Syncing…', syncIsError: 'Sync failed',
-      syncErrAuth: 'the token is wrong or has no access', syncErrRepo: 'repository not found', syncErrNet: 'no connection', syncErrForm: 'enter the repository as name/repo and the token',
+      accTitle: 'Account', accIn: 'Sign in with Google', accOut: 'Sign out', accAs: 'Signed in as', close: 'Close',
+      accHelp: 'Sign in with your Google account to keep the calendar in the cloud and open it on any device.',
+      accNoConfig: 'Cloud sign-in is not set up yet.', accErrLoad: 'could not load the cloud library',
+      accIsOff: 'Not signed in', accIsOk: 'Synced', accIsBusy: 'Syncing…', accIsError: 'Sync failed',
     },
     uk: {
       months: ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'],
@@ -47,10 +47,10 @@
       notifOn: 'Сповіщення увімкнено', notifOnBody: m => `Нагадаю за ${m} хв до початку кожної події.`,
       inMin: m => `Через ${m} хв`, startsNow: 'Починається зараз', bell: 'Сповіщення про події',
       appName: 'Календар', syncLocal: 'Лише цей пристрій',
-      syncTitle: 'Синхронізація (GitHub)', syncRepo: 'Приватний репозиторій', syncToken: 'Ключ доступу', syncOn: 'Підключити', syncOff: 'Відключити',
-      syncHelp: 'Дані зберігаються у вашому приватному репозиторії GitHub. Вставте той самий репозиторій і ключ на кожному пристрої.',
-      syncIsOff: 'Синхронізацію вимкнено', syncIsOk: 'Синхронізовано з GitHub', syncIsBusy: 'Синхронізація…', syncIsError: 'Помилка синхронізації',
-      syncErrAuth: 'ключ неправильний або не має доступу', syncErrRepo: 'репозиторій не знайдено', syncErrNet: 'немає зʼєднання', syncErrForm: 'вкажіть репозиторій як імʼя/репо та ключ',
+      accTitle: 'Акаунт', accIn: 'Увійти через Google', accOut: 'Вийти', accAs: 'Ви ввійшли як', close: 'Закрити',
+      accHelp: 'Увійдіть через Google-акаунт, щоб календар зберігався в хмарі й відкривався на будь-якому пристрої.',
+      accNoConfig: 'Вхід у хмару ще не налаштовано.', accErrLoad: 'не вдалося завантажити хмарну бібліотеку',
+      accIsOff: 'Ви не ввійшли', accIsOk: 'Синхронізовано', accIsBusy: 'Синхронізація…', accIsError: 'Помилка синхронізації',
     },
   };
 
@@ -853,44 +853,56 @@
   catch { kyivFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }); }
   const renderClock = () => { $('clock').textContent = kyivFmt.format(new Date()); };
 
-  // ---------- Cloud sync (GitHub) ----------
-  // Projects, lunch and the timer are kept as one JSON file in the user's own private GitHub
-  // repository, so every device that has the access token sees and edits the same calendar.
-  // The token never leaves this browser except in requests to api.github.com.
-  const SYNC_FILE = 'calendar-data.json';
-  let sync = load('cd.sync', null); // { repo: 'owner/name', token }
-  let syncBusy = false, pushTimer = null, remoteSha = null, syncError = '';
-  const b64enc = s => btoa(unescape(encodeURIComponent(s)));
-  const b64dec = s => decodeURIComponent(escape(atob(s.replace(/\s/g, ''))));
+  // ---------- Cloud sync (Firebase: Google sign-in + Firestore) ----------
+  // After signing in with Google, projects, lunch and the timer live in one Firestore document
+  // owned by that account (calendars/{uid}); every signed-in device listens to it in real time.
+  const FB_URL = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-';
+  const fbConfig = window.FIREBASE_CONFIG || null; // filled in firebase-config.js
+  let fb = null, user = null, docRef = null, unsub = null;
+  let pushTimer = null, pendingRemote = null, justSignedIn = false, syncError = '';
   const setLocal = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } };
+  try { localStorage.removeItem('cd.sync'); } catch { /* storage unavailable */ } // old GitHub access token
 
   function markDirty() {
     setLocal('cd.updated', Date.now());
     setLocal('cd.dirty', true);
-    if (!sync) return;
+    schedulePush();
+  }
+  function schedulePush() {
+    if (!user) return;
     clearTimeout(pushTimer);
-    pushTimer = setTimeout(syncNow, 1500);
+    pushTimer = setTimeout(pushNow, 1200);
   }
 
   function setSyncState(state) {
     const b = $('cloud');
     b.dataset.state = state;
-    const label = { off: L().syncIsOff, ok: L().syncIsOk, busy: L().syncIsBusy, error: `${L().syncIsError}${syncError ? ': ' + syncError : ''}` }[state];
+    const label = { off: L().accIsOff, ok: L().accIsOk, busy: L().accIsBusy, error: `${L().accIsError}${syncError ? ': ' + syncError : ''}` }[state];
     b.title = label;
     b.setAttribute('aria-label', label);
     $('syncStatus').textContent = label;
-    // Under the app name: which account the calendar is synced with.
-    const owner = sync ? `@${sync.repo.split('/')[0]}` : '';
-    $('brandSub').textContent = { off: L().syncLocal, ok: `${owner} · GitHub`, busy: `${owner} · ${L().syncIsBusy}`, error: `${owner || 'GitHub'} · ${L().syncIsError}` }[state];
+    // Under the app name: which account the calendar belongs to.
+    $('brandSub').textContent = user ? (state === 'error' ? `${user.email} · ${L().accIsError}` : user.email) : L().syncLocal;
+    $('accHelp').textContent = !fbConfig ? L().accNoConfig : user ? `${L().accAs} ${user.email}` : L().accHelp;
+    $('accIn').hidden = !fbConfig || !!user;
+    $('accOut').hidden = !user;
   }
 
-  const ghFile = (method, body) => fetch(`https://api.github.com/repos/${sync.repo}/contents/${SYNC_FILE}`, {
-    method,
-    cache: 'no-store',
-    headers: { Authorization: `Bearer ${sync.token}`, Accept: 'application/vnd.github+json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const httpError = r => new Error(r.status === 401 || r.status === 403 ? L().syncErrAuth : r.status === 404 ? L().syncErrRepo : `HTTP ${r.status}`);
+  async function pushNow() {
+    if (!user) return;
+    setSyncState('busy');
+    try {
+      const stamp = load('cd.updated', 0) || Date.now();
+      setLocal('cd.updated', stamp);
+      await fb.setDoc(docRef, { updated: stamp, json: JSON.stringify({ v: 1, events, lunch, timer }) });
+      if (load('cd.updated', 0) === stamp) setLocal('cd.dirty', false); // nothing changed meanwhile
+      syncError = '';
+      setSyncState('ok');
+    } catch (err) {
+      syncError = err.code || err.message;
+      setSyncState('error');
+    }
+  }
 
   function applyRemote(remote) {
     syncQuiet = true;
@@ -901,87 +913,77 @@
     timer = { ...timer, ...(remote.timer || {}), mode: '12', half: null };
     saveEvents(); saveLunch(); saveTimer();
     setLocal('cd.updated', remote.updated || 0);
+    setLocal('cd.dirty', false);
     syncQuiet = false;
     render();
     renderTimer();
   }
 
-  // Pull the cloud copy; push ours when this device has newer edits (last edit wins).
-  async function syncNow() {
-    if (!sync || syncBusy) return false;
-    if (!pop.hidden || dragging) { clearTimeout(pushTimer); pushTimer = setTimeout(syncNow, 3000); return false; }
-    syncBusy = true;
-    setSyncState('busy');
-    let ok = false;
+  // Apply a cloud copy once the editor is closed and nothing is being dragged.
+  function flushRemote() {
+    if (!pendingRemote) return;
+    if (!pop.hidden || dragging) { setTimeout(flushRemote, 2000); return; }
+    const d = pendingRemote;
+    pendingRemote = null;
     try {
-      const r = await ghFile('GET');
-      let remote = null;
-      if (r.status === 200) {
-        const j = await r.json();
-        remoteSha = j.sha;
-        remote = JSON.parse(b64dec(j.content));
-      } else if (r.status === 404) {
-        remoteSha = null; // no data file yet (or no such repository: the upload below tells which)
-      } else throw httpError(r);
-
-      const dirty = load('cd.dirty', false);
-      if (remote && !dirty) {
-        if (remote.updated !== load('cd.updated', 0)) applyRemote(remote);
-      } else {
-        const stamp = load('cd.updated', 0) || Date.now();
-        setLocal('cd.updated', stamp);
-        const data = { v: 1, updated: stamp, events, lunch, timer };
-        const w = await ghFile('PUT', { message: 'Update calendar data', content: b64enc(JSON.stringify(data)), ...(remoteSha ? { sha: remoteSha } : {}) });
-        if (!w.ok) throw httpError(w);
-        remoteSha = (await w.json()).content.sha;
-        if (load('cd.updated', 0) === stamp) setLocal('cd.dirty', false); // nothing changed meanwhile
-      }
+      applyRemote({ ...JSON.parse(d.json), updated: d.updated });
       syncError = '';
-      ok = true;
+      setSyncState('ok');
     } catch (err) {
-      syncError = err.message === 'Failed to fetch' ? L().syncErrNet : err.message;
+      syncError = err.message;
+      setSyncState('error');
     }
-    syncBusy = false;
-    setSyncState(ok ? 'ok' : 'error');
-    if (ok && load('cd.dirty', false)) { clearTimeout(pushTimer); pushTimer = setTimeout(syncNow, 1500); }
-    return ok;
   }
 
-  function startSync() {
+  function onRemote(snap) {
+    if (snap.metadata.hasPendingWrites) return; // our own write, still on its way
+    const fresh = justSignedIn;
+    justSignedIn = false;
+    if (!snap.exists()) { pushNow(); return; } // first device: upload what is here
+    const d = snap.data();
+    // Right after signing in the cloud copy wins; later, unsent local edits win (last edit wins).
+    if (!fresh && load('cd.dirty', false)) { schedulePush(); return; }
+    if (d.updated === load('cd.updated', 0)) { syncError = ''; setSyncState('ok'); return; }
+    pendingRemote = d;
+    flushRemote();
+  }
+
+  async function startSync() {
     const dlg = $('syncDlg');
-    $('cloud').onclick = () => {
-      $('syncRepo').value = sync ? sync.repo : '';
-      $('syncToken').value = '';
-      $('syncToken').placeholder = sync ? '••••••••' : 'github_pat_…';
-      $('syncOff').hidden = !sync;
-      setSyncState($('cloud').dataset.state || 'off');
-      dlg.showModal();
+    $('cloud').onclick = () => { setSyncState($('cloud').dataset.state || 'off'); dlg.showModal(); };
+    $('syncClose').onclick = () => dlg.close();
+    $('accIn').onclick = async () => {
+      if (!fb) return;
+      try {
+        justSignedIn = true;
+        await fb.signInWithPopup(fb.$auth, new fb.GoogleAuthProvider());
+        dlg.close();
+      } catch (err) {
+        justSignedIn = false;
+        syncError = err.code || err.message;
+        setSyncState('error');
+      }
     };
-    $('syncClose').onclick = () => {
-      if (!sync) { syncError = ''; setSyncState('off'); }
-      dlg.close();
-    };
-    $('syncOff').onclick = () => {
-      sync = null;
-      try { localStorage.removeItem('cd.sync'); } catch { /* storage unavailable */ }
-      syncError = '';
-      setSyncState('off');
-      dlg.close();
-    };
-    $('syncForm').addEventListener('submit', async ev => {
-      ev.preventDefault();
-      const repo = $('syncRepo').value.trim().replace(/^https:\/\/github\.com\//, '').replace(/\/$/, '');
-      const token = $('syncToken').value.trim() || (sync && sync.token);
-      if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !token) { syncError = L().syncErrForm; setSyncState('error'); return; }
-      sync = { repo, token };
-      setLocal('cd.sync', sync);
-      if (await syncNow()) dlg.close();
-    });
-    setSyncState(sync ? 'ok' : 'off');
-    if (sync) syncNow();
-    // Pick up edits made on another device: when the tab comes back, and once a minute while it is open.
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
-    setInterval(() => { if (!document.hidden) syncNow(); }, 60000);
+    $('accOut').onclick = async () => { if (fb) await fb.signOut(fb.$auth); dlg.close(); };
+    setSyncState('off');
+    if (!fbConfig) return;
+    try {
+      const [app, auth, store] = await Promise.all([import(`${FB_URL}app.js`), import(`${FB_URL}auth.js`), import(`${FB_URL}firestore.js`)]);
+      const instance = app.initializeApp(fbConfig);
+      fb = { ...auth, ...store, $auth: auth.getAuth(instance), $db: store.getFirestore(instance) };
+      fb.onAuthStateChanged(fb.$auth, u => {
+        user = u;
+        if (unsub) { unsub(); unsub = null; }
+        syncError = '';
+        if (!u) { setSyncState('off'); return; }
+        docRef = fb.doc(fb.$db, 'calendars', u.uid);
+        setSyncState('busy');
+        unsub = fb.onSnapshot(docRef, onRemote, err => { syncError = err.code || err.message; setSyncState('error'); });
+      });
+    } catch (err) {
+      syncError = L().accErrLoad;
+      setSyncState('error');
+    }
   }
 
   // ---------- Wiring ----------
