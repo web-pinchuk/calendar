@@ -1024,3 +1024,7 @@ body.guest .col, body.guest .dial-btn { cursor: default; }
 #fDialFor:empty { display: none; }
 
 .task-note.warn { color: #8a5a00; }
+
+/* ================= v35: a break of one's own in the editor ================= */
+.pop .row[hidden] { display: none; }
+.colors button[hidden] { display: none; }
