@@ -61,8 +61,9 @@
       alertNames: { remind: 'Before a block', start: 'Block starts', end: 'Block ends', lunch: 'Lunch', dayEnd: 'End of the working day', timer: 'Timer Start / Stop', visit: 'Invited person is online' },
       sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'No sound' },
       aStart: 'Time to start', aEnd: 'Finished', aLunch: 'Lunch time', aDayEnd: 'The working day is over', aDayEndBody: 'Good job. Time to rest.', aVisit: 'Your calendar is being viewed',
+      planAfter: h => h + ' of it after 11:00 on the deadline day',
       planAuto: 'First free time', planNoRoom: 'No free time on that day', planDurTip: 'Type your own: 2, 1.5, 1:30 or 20m',
-      planHoursAuto: 'Count the hours from the difficulty again', planDueTip: 'The day the project is handed over: on that day it is planned only until 11:00',
+      planHoursAuto: 'Count the hours from the difficulty again', planDueTip: 'The day the project is handed over: on that day it is planned for the morning, until 11:00',
       stTasks: 'Current tasks', stNoTasks: 'No tasks in the plan.', stDue: d => 'Deadline ' + d + ', work until 11:00', stOverdue: 'overdue',
       tabCal: 'Calendar', tabTimer: 'Timer',
       menuLang: 'Language', menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
@@ -131,8 +132,9 @@
       alertNames: { remind: 'Перед блоком', start: 'Початок блоку', end: 'Кінець блоку', lunch: 'Обід', dayEnd: 'Кінець робочого дня', timer: 'Таймер Старт / Стоп', visit: 'Запрошена людина онлайн' },
       sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'Без звуку' },
       aStart: 'Час починати', aEnd: 'Завершено', aLunch: 'Час обідати', aDayEnd: 'Робочий день закінчився', aDayEndBody: 'Гарна робота. Час відпочити.', aVisit: 'Ваш календар переглядають',
+      planAfter: h => h + ' із них після 11:00 у день дедлайну',
       planAuto: 'Перший вільний час', planNoRoom: 'Цього дня немає вільного часу', planDurTip: 'Введіть своє: 2, 1,5, 1:30 або 20хв',
-      planHoursAuto: 'Знову рахувати години зі складності', planDueTip: 'День здачі проєкту: цього дня робота над ним планується лише до 11:00',
+      planHoursAuto: 'Знову рахувати години зі складності', planDueTip: 'День здачі проєкту: цього дня робота над ним планується на ранок, до 11:00',
       stTasks: 'Актуальні задачі', stNoTasks: 'У плані немає задач.', stDue: d => 'Дедлайн ' + d + ', робота до 11:00', stOverdue: 'прострочено',
       tabCal: 'Календар', tabTimer: 'Таймер',
       menuLang: 'Мова', menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
@@ -203,8 +205,9 @@
       alertNames: { remind: 'Перед блоком', start: 'Начало блока', end: 'Конец блока', lunch: 'Обед', dayEnd: 'Конец рабочего дня', timer: 'Таймер Старт / Стоп', visit: 'Приглашённый человек онлайн' },
       sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'Без звука' },
       aStart: 'Пора начинать', aEnd: 'Завершено', aLunch: 'Время обеда', aDayEnd: 'Рабочий день закончился', aDayEndBody: 'Хорошая работа. Пора отдохнуть.', aVisit: 'Ваш календарь просматривают',
+      planAfter: h => h + ' из них после 11:00 в день дедлайна',
       planAuto: 'Первое свободное время', planNoRoom: 'В этот день нет свободного времени', planDurTip: 'Введите своё: 2, 1,5, 1:30 или 20мин',
-      planHoursAuto: 'Снова считать часы по сложности', planDueTip: 'День сдачи проекта: в этот день работа над ним планируется только до 11:00',
+      planHoursAuto: 'Снова считать часы по сложности', planDueTip: 'День сдачи проекта: в этот день работа над ним планируется на утро, до 11:00',
       stTasks: 'Актуальные задачи', stNoTasks: 'В плане нет задач.', stDue: d => 'Дедлайн ' + d + ', работа до 11:00', stOverdue: 'просрочено',
       tabCal: 'Календарь', tabTimer: 'Таймер',
       menuLang: 'Язык', menu: 'Меню', menuNotif: 'Уведомления', menuAccess: 'Добавить человека', on: 'Вкл.', off: 'Выкл.',
@@ -1601,7 +1604,8 @@
     const byDeadline = (a, b) => a.t.deadline.localeCompare(b.t.deadline) || b.t.diff - a.t.diff;
     // The morning of a deadline day (until 11:00) is short and may be wanted by several projects
     // handed over that day: each gets its part in turn, nearest and harder first. What a project
-    // cannot get there is not planned for that day at all.
+    // cannot get there moves to the working days before; with no such days left it stays on the
+    // deadline day and simply goes on after 11:00 - never past the deadline while that day has room.
     const morning = {}, share = {};
     const firstDay = t => (t.start > todayK ? t.start : todayCounts() ? todayK : key(addDays(today, 1)));
     validTasks().filter(t => !isFixed(t)).map(t => ({ t })).sort(byDeadline).forEach(({ t }) => {
@@ -1613,17 +1617,20 @@
     });
     const list = validTasks().filter(t => !isFixed(t)).map(t => {
       const first = firstDay(t), last = share[t.id];
-      // Counted from the difficulty, the deadline day adds only what really fits before 11:00.
-      const lost = !isManual(t) && t.deadline >= first ? Math.max(0, dayRate(t, t.deadline) - last) : 0;
-      const rem = Math.max(0, autoLeft(t) - lost - (pinned[t.id] || 0)); // hand-placed blocks already cover part of it
-      // Hours typed by the user are spread evenly over the working days that are left.
-      let daily = null;
+      const rem = Math.max(0, autoLeft(t) - (pinned[t.id] || 0)); // hand-placed blocks already cover part of it
+      const full = t.deadline > first ? workdays(first, key(addDays(fromKey(t.deadline), -1))) : 0; // working days before the deadline day
+      let daily = null, extra = 0, dueQuota = last;
       if (isManual(t)) {
-        const full = t.deadline > first ? workdays(first, key(addDays(fromKey(t.deadline), -1))) : 0;
+        // Hours typed by the user are spread evenly over the working days that are left.
         const part = rem / Math.max(1, full + (last > 0 ? 1 : 0));
         daily = Math.ceil((full && part > last ? (rem - last) / full : part) / 15) * 15;
+        if (!full) dueQuota = rem;
+      } else {
+        // Counted from the difficulty: the part of the deadline day that has no room before 11:00.
+        const lost = t.deadline >= first ? Math.max(0, dayRate(t, t.deadline) - last) : 0;
+        if (full) extra = Math.ceil(lost / full / 15) * 15; else dueQuota = last + lost;
       }
-      return { t, rem, daily, last, lost, late: 0, last2: null, nothing: rem === 0, over: t.deadline < todayK, quota: 0, placed: 0 };
+      return { t, rem, daily, extra, dueQuota, after: 0, late: 0, last2: null, nothing: rem === 0, over: t.deadline < todayK, quota: 0, placed: 0 };
     }).sort(byDeadline);
     const lastDeadline = list.reduce((m, x) => (x.t.deadline > m ? x.t.deadline : m), todayK);
     const horizon = addDays(fromKey(lastDeadline), 21);
@@ -1631,17 +1638,15 @@
     for (let d = today, n = 0; d <= horizon && n < 180 && list.some(x => x.rem > 0); d = addDays(d, 1), n++) {
       const k = key(d), free = freeIntervals(k, busy);
       // Every working day adds the project's daily portion; what a busy day could not take is caught up later.
-      if (dayPlan(k).on && (k !== todayK || todayCounts())) list.forEach(c => { if ((c.t.start || '') <= k) c.quota += c.daily != null ? c.daily : k === c.t.deadline ? c.last : dayRate(c.t, k); });
+      if (dayPlan(k).on && (k !== todayK || todayCounts())) list.forEach(c => { if ((c.t.start || '') <= k) c.quota += k === c.t.deadline ? c.dueQuota : c.daily != null ? c.daily : dayRate(c.t, k) + c.extra; });
       let capacity = free.reduce((sum, [x, y]) => sum + y - x, 0);
       if (!capacity) continue;
-      // Free time before 11:00: all that a project may take on the day of its deadline.
-      let early = free.reduce((sum, [x, y]) => sum + Math.max(0, Math.min(y, DUE_CUT) - x), 0);
       const due = c => c.t.deadline === k;
 
       // 1. Choose today's focus blocks: nearest deadline first, limited per project, not before its start date.
       //    Projects whose deadline has already passed must not starve the ones that can still make it.
       const chunks = [];
-      const cap = c => Math.min(even && k <= c.t.deadline ? c.quota - c.placed : Infinity, due(c) ? early : Infinity);
+      const cap = c => (even && k <= c.t.deadline ? c.quota - c.placed : Infinity);
       const open = c => c.rem > 0 && cap(c) >= Math.min(15, c.rem) && (c.t.start || '') <= k;
       for (;;) {
         const pause = chunks.length ? planCfg.gap : 0, room = capacity - pause;
@@ -1655,27 +1660,19 @@
         x.rem -= len;
         capacity -= len + pause;
         x.placed += len;
-        if (due(x)) early -= len + planCfg.gap;
       }
-      // 2. Order them: what is handed over today goes first (it must end by 11:00), then harder work earlier in the day.
+      // 2. Order them: what is handed over today goes first (the morning is its time), then harder work earlier in the day.
       chunks.sort((a, b) => due(b.x) - due(a.x) || b.x.t.diff - a.x.t.diff || byDeadline(a.x, b.x));
       // 3. Lay them into the free intervals with breaks in between.
       const slotsOf = new Map();
       let i = 0, pos = free[0][0];
       chunks.forEach(c => {
         let left = c.len;
-        const limit = due(c.x) ? DUE_CUT : Infinity;
         while (left > 0 && i < free.length) {
-          const end = Math.min(free[i][1], limit);
-          let room = end - pos;
+          let room = free[i][1] - pos;
           const lack = left - room; // a little short: start earlier and shorten the break before this block
           if (lack > 0 && lack <= planCfg.gap && pos - lack >= free[i][0]) { pos -= lack; room = left; }
-          if (room < Math.min(left, 30)) {
-            if (end < free[i][1]) break; // 11:00 on the deadline day: the rest of this interval is for other projects
-            i++;
-            if (i < free.length) pos = free[i][0];
-            continue;
-          }
+          if (room < Math.min(left, 30)) { i++; if (i < free.length) pos = free[i][0]; continue; }
           const take = Math.min(left, room);
           const slots = slotsOf.get(c.x) || [];
           const prev = slots[slots.length - 1];
@@ -1690,10 +1687,11 @@
       slotsOf.forEach((slots, x) => {
         out.push({ id: uid(), title: x.t.title.trim(), date: k, color: x.t.color, onDial: false, plan: x.t.id, slots });
         if (k > x.t.deadline) x.late += slots.reduce((sum, s) => sum + s.end - s.start, 0);
+        if (k === x.t.deadline) x.after += slots.reduce((sum, s) => sum + Math.max(0, s.end - Math.max(s.start, DUE_CUT)), 0);
         x.last2 = k;
       });
     }
-    list.forEach(x => { info[x.t.id] = { rem: x.rem, late: x.late, last: x.last2, lost: x.lost, nothing: x.nothing, over: x.over }; });
+    list.forEach(x => { info[x.t.id] = { rem: x.rem, late: x.late, last: x.last2, after: x.after, nothing: x.nothing, over: x.over }; });
     return { kept: keep, out, info, score: list.reduce((sum, x) => sum + x.late + x.rem, 0) };
   }
 
@@ -1765,6 +1763,7 @@
         note.classList.add('ok');
       } else if (r.nothing) { note.textContent = r.over ? L().planOver : L().planAllDone; if (r.over) note.classList.add('bad'); }
       else if (r.rem + r.late > 0) { note.textContent = L().planShort(fmtH(r.rem + r.late)); note.classList.add('bad'); }
+      else if (r.after > 0) { note.textContent = `${L().planFits} · ${L().planEnds} ${shortDate(r.last)} · ${L().planAfter(fmtH(r.after))}`; note.classList.add('warn'); }
       else { note.textContent = `${L().planFits} · ${L().planEnds} ${shortDate(r.last)}`; note.classList.add('ok'); }
     });
     document.querySelectorAll('#planTasks input.dur[data-total]').forEach(i => {
