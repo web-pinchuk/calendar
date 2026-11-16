@@ -993,3 +993,24 @@ body.guest .col, body.guest .dial-btn { cursor: default; }
   #ntfEvents .plan-toggle { height: auto; min-height: 44px; padding-top: 6px; padding-bottom: 6px; }
   #ntfEvents .plan-toggle span { white-space: normal; font-size: 14px; line-height: 1.2; }
 }
+
+/* ================= v33: own hours in the planner, current tasks in the statistics ================= */
+.fld input.dur { background: #fff; box-shadow: inset 0 0 0 1px #d9dce2; cursor: text; }
+.fld input.dur:hover { box-shadow: inset 0 0 0 1px #b4b8c1; }
+.fld input.dur:focus-visible { outline: 2px solid var(--violet); outline-offset: 0; }
+.fld input.dur[readonly] { background: var(--panel); box-shadow: none; cursor: default; }
+.dur-box { position: relative; }
+.dur-box.own input.dur { box-shadow: inset 0 0 0 1.5px var(--violet); padding-right: 36px; }
+.dur-auto { position: absolute; right: 6px; top: 50%; margin-top: -14px; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: #5b2fc0; }
+.dur-auto[hidden] { display: none; }
+.dur-auto:hover { background: rgba(181, 146, 245, .2); }
+.more-add[hidden] { display: none; }
+
+.st-task { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 10px 12px; align-items: center; padding: 14px 0; border-top: 1px solid #eceef1; }
+.st-h + .st-task { border-top: 0; padding-top: 0; }
+.st-task .st-bar { grid-column: 1 / -1; height: 6px; }
+.st-task .st-num { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.st-task .st-num b { font-size: 16px; }
+.st-task .st-num em { font-style: normal; font-size: 12px; line-height: 1; padding: 4px 8px; border-radius: 8px; background: var(--panel); color: var(--ink); }
+.st-task .st-num em.soon { background: #fdebc8; color: #6f4400; }
+.st-task .st-num em.late { background: #fde0d8; color: #9c2f0d; }
