@@ -1014,3 +1014,11 @@ body.guest .col, body.guest .dial-btn { cursor: default; }
 .st-task .st-num em { font-style: normal; font-size: 12px; line-height: 1; padding: 4px 8px; border-radius: 8px; background: var(--panel); color: var(--ink); }
 .st-task .st-num em.soon { background: #fdebc8; color: #6f4400; }
 .st-task .st-num em.late { background: #fde0d8; color: #9c2f0d; }
+
+/* ================= v34: "Task done" belongs to one block ================= */
+/* In the editor the time row the tick is about is outlined; finished rows carry a check mark. */
+.slot { position: relative; border-radius: 14px; }
+.slot.pick { box-shadow: 0 0 0 2px var(--violet); padding: 3px; margin: -3px; }
+.pop .slot.done select:first-child { padding-left: 38px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236a3fd0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231f1f22' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 9 7 7 7-7'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 12px center, right 16px center; background-size: 16px, 14px; }
+#fDialFor { margin-left: auto; font-style: normal; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#fDialFor:empty { display: none; }
