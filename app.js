@@ -61,7 +61,7 @@
       alertNames: { remind: 'Before a block', start: 'Block starts', end: 'Block ends', lunch: 'Lunch', dayEnd: 'End of the working day', timer: 'Timer Start / Stop', visit: 'Invited person is online' },
       sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'No sound' },
       aStart: 'Time to start', aEnd: 'Finished', aLunch: 'Lunch time', aDayEnd: 'The working day is over', aDayEndBody: 'Good job. Time to rest.', aVisit: 'Your calendar is being viewed',
-      planAfter: h => h + ' of it after 11:00 on the deadline day',
+      planAfter: h => 'Not ready by the handover: ' + h + ' is after 11:00 on the deadline day',
       planAuto: 'First free time', planNoRoom: 'No free time on that day', planDurTip: 'Type your own: 2, 1.5, 1:30 or 20m',
       planHoursAuto: 'Count the hours from the difficulty again', planDueTip: 'The day the project is handed over: on that day it is planned for the morning, until 11:00',
       stTasks: 'Current tasks', stNoTasks: 'No tasks in the plan.', stDue: d => 'Deadline ' + d + ', work until 11:00', stOverdue: 'overdue',
@@ -132,7 +132,7 @@
       alertNames: { remind: 'Перед блоком', start: 'Початок блоку', end: 'Кінець блоку', lunch: 'Обід', dayEnd: 'Кінець робочого дня', timer: 'Таймер Старт / Стоп', visit: 'Запрошена людина онлайн' },
       sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'Без звуку' },
       aStart: 'Час починати', aEnd: 'Завершено', aLunch: 'Час обідати', aDayEnd: 'Робочий день закінчився', aDayEndBody: 'Гарна робота. Час відпочити.', aVisit: 'Ваш календар переглядають',
-      planAfter: h => h + ' із них після 11:00 у день дедлайну',
+      planAfter: h => 'Не встигає до здачі: ' + h + ' стоїть після 11:00 у день дедлайну',
       planAuto: 'Перший вільний час', planNoRoom: 'Цього дня немає вільного часу', planDurTip: 'Введіть своє: 2, 1,5, 1:30 або 20хв',
       planHoursAuto: 'Знову рахувати години зі складності', planDueTip: 'День здачі проєкту: цього дня робота над ним планується на ранок, до 11:00',
       stTasks: 'Актуальні задачі', stNoTasks: 'У плані немає задач.', stDue: d => 'Дедлайн ' + d + ', робота до 11:00', stOverdue: 'прострочено',
@@ -205,7 +205,7 @@
       alertNames: { remind: 'Перед блоком', start: 'Начало блока', end: 'Конец блока', lunch: 'Обед', dayEnd: 'Конец рабочего дня', timer: 'Таймер Старт / Стоп', visit: 'Приглашённый человек онлайн' },
       sounds: { chime: 'Chime', bell: 'Bell', marimba: 'Marimba', ping: 'Ping', pulse: 'Pulse', alarm: 'Alarm', none: 'Без звука' },
       aStart: 'Пора начинать', aEnd: 'Завершено', aLunch: 'Время обеда', aDayEnd: 'Рабочий день закончился', aDayEndBody: 'Хорошая работа. Пора отдохнуть.', aVisit: 'Ваш календарь просматривают',
-      planAfter: h => h + ' из них после 11:00 в день дедлайна',
+      planAfter: h => 'Не успевает к сдаче: ' + h + ' стоит после 11:00 в день дедлайна',
       planAuto: 'Первое свободное время', planNoRoom: 'В этот день нет свободного времени', planDurTip: 'Введите своё: 2, 1,5, 1:30 или 20мин',
       planHoursAuto: 'Снова считать часы по сложности', planDueTip: 'День сдачи проекта: в этот день работа над ним планируется на утро, до 11:00',
       stTasks: 'Актуальные задачи', stNoTasks: 'В плане нет задач.', stDue: d => 'Дедлайн ' + d + ', работа до 11:00', stOverdue: 'просрочено',
@@ -637,6 +637,38 @@
     });
   }
 
+  // Blocks of one project that touch on the same day become one block (moved next to each other,
+  // pushed together by a neighbour, or typed that way in the editor). A finished block and an
+  // unfinished one stay apart: the tick belongs to each of them. Returns the projects that grew.
+  function mergeDay(k) {
+    const day = events.filter(e => e.date === k), grown = new Set();
+    const name = e => e.title.trim().toLowerCase();
+    const kin = (a, b) => a === b || (a.plan || b.plan ? a.plan === b.plan : name(a) === name(b) && a.color === b.color);
+    const find = () => {
+      for (const a of day) for (const sa of a.slots) for (const b of day) {
+        if (!kin(a, b)) continue;
+        const sb = b.slots.find(x => x !== sa && x.start === sa.end && !x.done === !sa.done);
+        if (sb) return { a, sa, b, sb };
+      }
+      return null;
+    };
+    for (let hit = find(), n = 0; hit && n < 200; hit = find(), n++) {
+      hit.sa.end = hit.sb.end;
+      hit.b.slots = hit.b.slots.filter(x => x !== hit.sb);
+      if (hit.a !== hit.b) {
+        if (hit.b.pin) hit.a.pin = true;
+        if (!hit.b.slots.length && trackKey(hit.a) !== trackKey(hit.b)) { // the tracked time moves along
+          timer.sessions.forEach(x => { if (x.id === trackKey(hit.b)) x.id = trackKey(hit.a); });
+          if (timer.run && timer.run.id === trackKey(hit.b)) timer.run.id = trackKey(hit.a);
+        }
+      }
+      grown.add(hit.a);
+    }
+    const empty = day.filter(e => !e.slots.length);
+    if (empty.length) { events = events.filter(e => !empty.includes(e)); empty.forEach(e => grown.delete(e)); }
+    return grown;
+  }
+
   // Drag the middle of a block to move it, a grip on its top/bottom edge to stretch it (15-min steps).
   function startDrag(ev, blk, b, mode) {
     if (ev.button !== 0 || GUEST) return;
@@ -688,12 +720,15 @@
       } else {
         const real = events.find(x => x.id === e.id);
         if (real) {
-          const slot = real.slots[blk.i] = { start: st.start, end: st.end };
+          const slot = real.slots[blk.i] = { ...real.slots[blk.i], start: st.start, end: st.end }; // the tick stays with the block
           real.date = st.date; // moving one block to another day moves the whole project
           settleDay(real.date, slot);
           real.slots.sort((a, b) => a.start - b.start);
-          if (real.plan) manualEdit(real);
+          const grown = mergeDay(real.date);
+          if (events.includes(real)) grown.add(real);
+          grown.forEach(x => { if (x.plan) manualEdit(x); });
           saveEvents();
+          saveTimer();
         }
       }
       planResult = null;
@@ -920,6 +955,9 @@
       events = events.filter(x => x.id !== e.id).concat(e);
       e.slots.slice().forEach(slot => settleDay(e.date, slot)); // neighbours make room
       e.slots.sort((a, b) => a.start - b.start);
+      const grown = mergeDay(e.date); // touching blocks of the same project become one
+      if (!events.includes(e)) e = [...grown][0] || e; // it was taken into a neighbour of the same project
+      grown.forEach(x => { if (x.plan && x !== e) manualEdit(x); });
       if (e.plan) manualEdit(e, before); // what was changed by hand goes into the plan as well
       planResult = null;
       saveEvents();
@@ -1602,43 +1640,79 @@
     const busy = keep.concat(out);
 
     const byDeadline = (a, b) => a.t.deadline.localeCompare(b.t.deadline) || b.t.diff - a.t.diff;
-    // The morning of a deadline day (until 11:00) is short and may be wanted by several projects
-    // handed over that day: each gets its part in turn, nearest and harder first. What a project
-    // cannot get there moves to the working days before; with no such days left it stays on the
-    // deadline day and simply goes on after 11:00 - never past the deadline while that day has room.
-    const morning = {}, share = {};
     const firstDay = t => (t.start > todayK ? t.start : todayCounts() ? todayK : key(addDays(today, 1)));
-    validTasks().filter(t => !isFixed(t)).map(t => ({ t })).sort(byDeadline).forEach(({ t }) => {
-      const k = t.deadline;
-      if (k < firstDay(t)) { share[t.id] = 0; return; }
-      if (!(k in morning)) morning[k] = freeIntervals(k, busy).reduce((sum, [x, y]) => sum + Math.max(0, Math.min(y, DUE_CUT) - x), 0);
-      share[t.id] = Math.max(0, Math.floor(Math.min(RATE[t.diff], morning[k]) / 15) * 15);
-      if (share[t.id]) morning[k] -= share[t.id] + planCfg.gap;
-    });
     const list = validTasks().filter(t => !isFixed(t)).map(t => {
-      const first = firstDay(t), last = share[t.id];
       const rem = Math.max(0, autoLeft(t) - (pinned[t.id] || 0)); // hand-placed blocks already cover part of it
-      const full = t.deadline > first ? workdays(first, key(addDays(fromKey(t.deadline), -1))) : 0; // working days before the deadline day
-      let daily = null, extra = 0, dueQuota = last;
-      if (isManual(t)) {
-        // Hours typed by the user are spread evenly over the working days that are left.
-        const part = rem / Math.max(1, full + (last > 0 ? 1 : 0));
-        daily = Math.ceil((full && part > last ? (rem - last) / full : part) / 15) * 15;
-        if (!full) dueQuota = rem;
-      } else {
-        // Counted from the difficulty: the part of the deadline day that has no room before 11:00.
-        const lost = t.deadline >= first ? Math.max(0, dayRate(t, t.deadline) - last) : 0;
-        if (full) extra = Math.ceil(lost / full / 15) * 15; else dueQuota = last + lost;
-      }
-      return { t, rem, daily, extra, dueQuota, after: 0, late: 0, last2: null, nothing: rem === 0, over: t.deadline < todayK, quota: 0, placed: 0 };
+      return { t, rem, alloc: {}, days: [], short: 0, after: 0, late: 0, last2: null, nothing: rem === 0, over: t.deadline < todayK, quota: 0, placed: 0 };
     }).sort(byDeadline);
+
+    // The calm plan (`even`): before anything is placed, every project gets its minutes for each
+    // day. Projects are served in the order of their handover - the nearest one takes the time it
+    // needs first - and each spreads its work evenly over its own days: from its start to the
+    // deadline, where only the morning (until 11:00) counts. A day gives no more than it has.
+    if (even) {
+      const capLeft = {}, mornLeft = {}, rawLeft = {};
+      const see = k => {
+        if (k in capLeft) return;
+        const free = freeIntervals(k, busy), total = free.reduce((sum, [x, y]) => sum + y - x, 0);
+        const breaks = Math.max(0, Math.ceil(total / (planCfg.block + planCfg.gap)) - 1); // the pauses between focus blocks take time too
+        capLeft[k] = Math.max(0, total - breaks * planCfg.gap);
+        rawLeft[k] = total; // with the pauses given up
+        mornLeft[k] = free.reduce((sum, [x, y]) => sum + Math.max(0, Math.min(y, DUE_CUT) - x), 0);
+      };
+      const room = (c, k) => Math.max(0, k === c.t.deadline ? Math.min(capLeft[k], mornLeft[k]) : capLeft[k]);
+      const give = (c, k, m, noon) => { c.alloc[k] = (c.alloc[k] || 0) + m; capLeft[k] -= m; rawLeft[k] -= m; if (k === c.t.deadline && !noon) mornLeft[k] -= m; };
+      const take = (c, k, m) => { c.alloc[k] -= m; capLeft[k] += m; rawLeft[k] += m; if (k === c.t.deadline) mornLeft[k] += m; };
+      list.forEach((q, at) => {
+        for (let d = fromKey(firstDay(q.t)), i = 0; key(d) <= q.t.deadline && i < 400; d = addDays(d, 1), i++) {
+          const k = key(d);
+          if (dayPlan(k).on) { see(k); q.days.push(k); }
+        }
+        let left = q.rem;
+        // 1. Even shares; a day that is full passes its part on to the other days.
+        for (let pass = 0; left > 0 && pass < 60; pass++) {
+          const open = q.days.filter(k => room(q, k) > 0);
+          if (!open.length) break;
+          const per = Math.max(15, Math.ceil(left / open.length / 15) * 15);
+          open.forEach(k => { const m = Math.min(per, room(q, k), left); if (m > 0) { give(q, k, m); left -= m; } });
+        }
+        // 2. Not enough: the projects served before it move their work off its days to other days
+        //    of their own where there is still room (their deadlines stay safe); it takes what is freed.
+        if (left > 0) q.days.filter(k => k !== q.t.deadline).reverse().forEach(k => {
+          list.slice(0, at).forEach(c => {
+            c.days.forEach(j => {
+              if (left <= 0 || q.days.includes(j) || !(c.alloc[k] > 0)) return;
+              const m = Math.floor(Math.min(c.alloc[k], room(c, j), left) / 15) * 15;
+              if (m < 15) return;
+              take(c, k, m);
+              give(c, j, m);
+              const got = Math.min(room(q, k), left);
+              give(q, k, got);
+              left -= got;
+            });
+          });
+        });
+        // 3. Still not enough: its days are packed tighter, the pauses between blocks give way.
+        q.days.forEach(k => {
+          if (left <= 0 || k === q.t.deadline) return;
+          const m = Math.min(left, Math.max(0, rawLeft[k]));
+          if (m > 0) { give(q, k, m); left -= m; }
+        });
+        // 4. And then the rest of the deadline day (after 11:00): better than a day past the deadline.
+        if (left > 0 && q.days.includes(q.t.deadline)) {
+          const m = Math.min(left, Math.max(0, rawLeft[q.t.deadline]));
+          if (m > 0) { give(q, q.t.deadline, m, true); left -= m; }
+        }
+        q.short = left;
+      });
+    }
     const lastDeadline = list.reduce((m, x) => (x.t.deadline > m ? x.t.deadline : m), todayK);
     const horizon = addDays(fromKey(lastDeadline), 21);
 
     for (let d = today, n = 0; d <= horizon && n < 180 && list.some(x => x.rem > 0); d = addDays(d, 1), n++) {
       const k = key(d), free = freeIntervals(k, busy);
-      // Every working day adds the project's daily portion; what a busy day could not take is caught up later.
-      if (dayPlan(k).on && (k !== todayK || todayCounts())) list.forEach(c => { if ((c.t.start || '') <= k) c.quota += k === c.t.deadline ? c.dueQuota : c.daily != null ? c.daily : dayRate(c.t, k) + c.extra; });
+      // Every day adds the minutes the project was given for it; what the day could not take is caught up later.
+      list.forEach(c => { c.quota += c.alloc[k] || 0; });
       let capacity = free.reduce((sum, [x, y]) => sum + y - x, 0);
       if (!capacity) continue;
       const due = c => c.t.deadline === k;
@@ -1646,7 +1720,8 @@
       // 1. Choose today's focus blocks: nearest deadline first, limited per project, not before its start date.
       //    Projects whose deadline has already passed must not starve the ones that can still make it.
       const chunks = [];
-      const cap = c => (even && k <= c.t.deadline ? c.quota - c.placed : Infinity);
+      // On the deadline day (and after it) a project takes whatever is still left of it.
+      const cap = c => (even && k < c.t.deadline ? c.quota - c.placed : Infinity);
       const open = c => c.rem > 0 && cap(c) >= Math.min(15, c.rem) && (c.t.start || '') <= k;
       for (;;) {
         const pause = chunks.length ? planCfg.gap : 0, room = capacity - pause;
@@ -1654,8 +1729,16 @@
         const x = list.find(c => open(c) && c.t.deadline >= k) || list.find(open);
         if (!x) break;
         let len = Math.min(planCfg.block, x.rem, room, cap(x));
-        const tail = x.rem - len;
+        const tail = Math.min(x.rem, cap(x)) - len; // what would be left of today's part
         if (tail > 0 && tail < 30 && tail <= pause) len += tail; // skip the break rather than leave a 15-minute stub
+        const prev = chunks[chunks.length - 1];
+        if (prev && prev.x === x && len < 30) { // a short rest of the same project joins its block, without a break
+          prev.len += len;
+          x.rem -= len;
+          capacity -= len;
+          x.placed += len;
+          continue;
+        }
         chunks.push({ x, len });
         x.rem -= len;
         capacity -= len + pause;
@@ -1692,7 +1775,8 @@
       });
     }
     list.forEach(x => { info[x.t.id] = { rem: x.rem, late: x.late, last: x.last2, after: x.after, nothing: x.nothing, over: x.over }; });
-    return { kept: keep, out, info, score: list.reduce((sum, x) => sum + x.late + x.rem, 0) };
+    // Work past the deadline (or not placed at all) weighs far more than work after 11:00 on the deadline day.
+    return { kept: keep, out, info, score: list.reduce((sum, x) => sum + (x.late + x.rem) * 1000 + x.after, 0) };
   }
 
   // `quiet`: the automatic run after any change - no message, the sheet stays as it is.
@@ -1700,8 +1784,8 @@
   function runPlanner(quiet) {
     if (!validTasks().length) { if (quiet !== true) toast(L().planner, L().planNone); return; }
     const placed = resolveAuto();
-    let r = schedule(true); // an even daily portion of every project...
-    if (r.score > 0) { const tight = schedule(false); if (tight.score < r.score) r = tight; } // ...unless that cannot meet the deadlines
+    let r = schedule(true); // the calm plan: nearest handover first, each project spread evenly over its days...
+    if (r.score > 0) { const tight = schedule(false); if (tight.score < r.score) r = tight; } // ...or, when that is not enough, everything as early as possible
     // The calendar is rewritten only when the plan really differs (block ids are new on every run).
     const next = r.kept.concat(r.out);
     const shape = list => JSON.stringify(list.filter(e => e.plan).map(e => [e.plan, e.date, e.title, e.color, e.slots.map(s => [s.start, s.end])]).sort());
@@ -1763,7 +1847,7 @@
         note.classList.add('ok');
       } else if (r.nothing) { note.textContent = r.over ? L().planOver : L().planAllDone; if (r.over) note.classList.add('bad'); }
       else if (r.rem + r.late > 0) { note.textContent = L().planShort(fmtH(r.rem + r.late)); note.classList.add('bad'); }
-      else if (r.after > 0) { note.textContent = `${L().planFits} · ${L().planEnds} ${shortDate(r.last)} · ${L().planAfter(fmtH(r.after))}`; note.classList.add('warn'); }
+      else if (r.after > 0) { note.textContent = L().planAfter(fmtH(r.after)); note.classList.add('bad'); }
       else { note.textContent = `${L().planFits} · ${L().planEnds} ${shortDate(r.last)}`; note.classList.add('ok'); }
     });
     document.querySelectorAll('#planTasks input.dur[data-total]').forEach(i => {
