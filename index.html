@@ -153,12 +153,19 @@
         <button type="button" class="add-slot" id="fAddSlot">+ <span data-i18n="addTime">Add time</span></button>
       </div>
     </div>
-    <label class="row">
+    <label class="row" id="fDialRow">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 7.4 4.3" stroke-width="3.2"/></svg>
       <span class="check">
         <input id="fDial" type="checkbox">
         <span data-i18n="addToDial">Task done</span>
         <em id="fDialFor"></em>
+      </span>
+    </label>
+    <label class="row" id="fBreakRow">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5V9Z"/><path d="M16 10h1.500a2.500 2.500 0 0 1 0 5H16M8 3v2.500M12 3v2.500"/></svg>
+      <span class="check">
+        <input id="fBreak" type="checkbox">
+        <span data-i18n="breakLabel">Break</span>
       </span>
     </label>
     <div class="pop-actions">
