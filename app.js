@@ -303,6 +303,12 @@
     delete e.cat;
     toSlots(e);
   });
+  // "Task done" is kept per time slot (`slot.done`): a project with several blocks in a day can
+  // have some of them finished. `onDial` stays as the summary "every block is done"; data saved
+  // before that (onDial without slot marks) means all of its blocks were ticked.
+  const adoptDone = e => { if (e.onDial) e.slots.forEach(x => { x.done = true; }); };
+  const syncDone = e => { e.onDial = e.slots.length > 0 && e.slots.every(x => x.done); };
+  events.forEach(adoptDone);
   toSlots(lunch);
   if (!lunch.v) { lunch.color = 'neutral'; lunch.v = 2; } // lunch is a neutral break, not a project colour
   if (!load('cd.v3', false)) {
@@ -318,7 +324,7 @@
       && SAMPLE[e.title] === `${e.slots[0].start}-${e.slots[0].end}`));
     save('cd.v4', true);
   }
-  const saveEvents = () => save('cd.events', events);
+  const saveEvents = () => { events.forEach(syncDone); save('cd.events', events); };
   const saveLunch = () => save('cd.lunch', lunch);
   saveEvents();
 
@@ -328,7 +334,7 @@
   const projectsOn = (k, withLunch = true) => events.filter(e => e.date === k).concat(lunch.on && withLunch && dayPlan(k).on ? [lunchOn(k)] : [])
     .sort((a, b) => firstStart(a) - firstStart(b));
   // One calendar block per time slot of every project of the day.
-  const blocksOn = k => projectsOn(k).flatMap(e => e.slots.map((s, i) => ({ e, i, start: s.start, end: s.end })))
+  const blocksOn = k => projectsOn(k).flatMap(e => e.slots.map((s, i) => ({ e, i, start: s.start, end: s.end, done: e.id === LUNCH ? !!e.onDial : !!s.done })))
     .sort((a, b) => a.start - b.start);
 
   // ---------- Language ----------
@@ -524,7 +530,7 @@
         b.classList.toggle('short', h < 48);
         b.dataset.key = trackKey(e);
         b.classList.toggle('active', k === key(sel) && trackKey(e) === dialSel(k));
-        b.classList.toggle('done', !!e.onDial);
+        b.classList.toggle('done', blk.done);
         paint(b, colorOf(e));
         b.style.top = `${yOf(Math.max(blk.start, VS))}px`;
         b.style.height = `${h}px`;
@@ -541,7 +547,7 @@
           ev.stopPropagation();
           if (justActed()) return;
           if (GUEST) { pickOnDial(e); return; }
-          openEditor({ ...e, slots: e.slots.map(s => ({ ...s })) }, b, null, { x: ev.clientX, y: ev.clientY });
+          openEditor({ ...e, slots: e.slots.map(s => ({ ...s })), focus: blk.i }, b, null, { x: ev.clientX, y: ev.clientY });
         };
         col.append(b);
       });
@@ -586,7 +592,7 @@
     if (isFixed(t)) {
       const slots = e.slots.map(s => ({ ...s })).sort((a, b) => a.start - b.start);
       t.date = e.date; t.from = slots[0].start; t.to = slots[0].end;
-      if (slots.length > 1) t.more = slots.slice(1); else delete t.more; // extra time ranges added in the calendar
+      if (slots.length > 1) t.more = slots.slice(1).map(x => ({ start: x.start, end: x.end })); else delete t.more; // extra time ranges added in the calendar
     } else e.pin = true;
     saveTasks();
   }
@@ -766,6 +772,26 @@
       renderSlots();
       placePop();
     };
+    // "Task done" belongs to the block that was clicked (the highlighted time row).
+    $('fDial').onchange = () => {
+      if (!draft) return;
+      if (draft.id === LUNCH) { draft.onDial = $('fDial').checked; return; }
+      (draft.pick ? [draft.pick] : draft.slots).forEach(x => { if ($('fDial').checked) x.done = true; else delete x.done; });
+      markPick();
+    };
+  }
+  // Shows which time row the tick is about and whether each row is done.
+  function markPick() {
+    if (!draft) return;
+    const lunchRow = draft.id === LUNCH;
+    if (!lunchRow && !draft.slots.includes(draft.pick)) draft.pick = draft.slots[0];
+    [...$('fSlots').children].forEach((row, i) => {
+      const x = draft.slots[i];
+      row.classList.toggle('pick', !lunchRow && draft.slots.length > 1 && x === draft.pick);
+      row.classList.toggle('done', !lunchRow && !!x.done);
+    });
+    $('fDial').checked = lunchRow ? !!draft.onDial : !!draft.pick.done;
+    $('fDialFor').textContent = lunchRow || draft.slots.length < 2 ? '' : `${hm(draft.pick.start)} – ${draft.pick.end === 1440 ? '24:00' : hm(draft.pick.end)}`;
   }
   function setColor(id) {
     draft.color = id;
@@ -784,8 +810,10 @@
       a.onchange = () => {
         s.start = +a.value;
         if (s.end <= s.start) { s.end = Math.min(s.start + 60, 1440); b.value = s.end; }
+        markPick();
       };
-      b.onchange = () => { s.end = +b.value; };
+      b.onchange = () => { s.end = +b.value; markPick(); };
+      row.onpointerdown = row.onfocusin = () => { if (draft.pick !== s) { draft.pick = s; markPick(); } }; // this row is the one the tick is about
       row.append(a, b);
       if (draft.slots.length > 1) {
         const rm = el('button', 'rm');
@@ -798,6 +826,7 @@
       }
       return row;
     }));
+    markPick();
   }
 
   // Keep the popover beside the click point (right of the cursor, or left when there is no room).
@@ -813,6 +842,8 @@
   function openEditor(data, anchor, col, pt) {
     closeEditor();
     draft = { color: PALETTE[events.length % PALETTE.length].id, title: '', onDial: false, ...data };
+    draft.pick = draft.slots[data.focus] || draft.slots[0]; // the clicked block
+    delete draft.focus;
     if (draft.id && draft.id !== LUNCH) pickOnDial(draft); // the clicked project becomes the one on the dial
     if (col) {
       ghost = el('div', 'ghost');
@@ -827,7 +858,6 @@
     $('fDate').value = draft.date;
     $('fDate').hidden = isLunch;
     $('fDaily').hidden = !isLunch;
-    $('fDial').checked = !!draft.onDial;
     $('fColors').hidden = true;
     setColor(draft.color);
     renderSlots();
@@ -859,8 +889,10 @@
   pop.addEventListener('submit', ev => {
     ev.preventDefault();
     if (draft.slots.some(s => s.end <= s.start)) { toast(L().badTime, L().badTimeBody); return; }
-    const title = $('fTitle').value.trim(), onDial = $('fDial').checked;
+    const title = $('fTitle').value.trim();
     const slots = draft.slots.map(s => ({ ...s })).sort((a, b) => a.start - b.start);
+    const onDial = draft.id === LUNCH ? $('fDial').checked : slots.every(x => x.done);
+    if (draft.id === LUNCH) slots.forEach(x => { delete x.done; });
     if (!title) return;
     if (draft.id === LUNCH) {
       lunch = { on: lunch.on, v: 2, slots, onDial, color: draft.color, title: title === L().lunch ? '' : title };
@@ -1227,7 +1259,7 @@
       const id = trackKey(e);
       const p = map.get(id) || { id, title: e.title, color: e.color, slots: [], planned: [] };
       p.slots.push(...e.slots);
-      if (e.onDial) p.planned.push(...e.slots);
+      p.planned.push(...(e.id === LUNCH ? (e.onDial ? e.slots : []) : e.slots.filter(x => x.done)));
       map.set(id, p);
     });
     return [...map.values()];
@@ -1557,7 +1589,12 @@
       if (t.auto) { info[t.id] = { fixed: true, nofit: true }; return; } // no free time was found for it
       const past = t.date < todayK || (t.date === todayK && t.from < now);
       info[t.id] = { fixed: true, past };
-      out.push({ id: old ? old.id : uid(), title: t.title.trim(), date: t.date, color: t.color, onDial: old ? !!old.onDial : past, plan: t.id, slots: fixedSlots(t) });
+      const slots = fixedSlots(t);
+      slots.forEach(x => {
+        const was = old && old.slots.find(o => o.start === x.start && o.end === x.end);
+        if (was ? was.done : !old && (t.date < todayK || (t.date === todayK && x.start < now))) x.done = true; // a time already gone is recorded as done
+      });
+      out.push({ id: old ? old.id : uid(), title: t.title.trim(), date: t.date, color: t.color, onDial: slots.every(x => x.done), plan: t.id, slots });
     });
     const busy = keep.concat(out);
 
@@ -2031,7 +2068,7 @@
       if (!e || e.date !== t.date || e.slots.length < 2) return;
       const slots = e.slots.map(s => ({ ...s })).sort((a, b) => a.start - b.start);
       if (slots[0].start !== t.from || slots[0].end !== t.to) return;
-      t.more = slots.slice(1);
+      t.more = slots.slice(1).map(x => ({ start: x.start, end: x.end }));
       changed = true;
     });
     if (changed) saveTasks();
@@ -2116,7 +2153,7 @@
       let done = 0, plan = 0;
       e.slots.forEach(s => {
         const len = s.end - s.start;
-        const d = e.onDial || e.date < todayK ? len : e.date > todayK ? 0 : clamp(now - s.start, 0, len);
+        const d = s.done || e.date < todayK ? len : e.date > todayK ? 0 : clamp(now - s.start, 0, len);
         done += d; plan += len - d;
       });
       p.done += done; p.plan += plan;
@@ -2174,7 +2211,7 @@
           e.slots.forEach(s => {
             const len = s.end - s.start;
             total += len;
-            did += e.onDial || e.date < todayK ? len : e.date > todayK ? 0 : clamp(now - s.start, 0, len);
+            did += s.done || e.date < todayK ? len : e.date > todayK ? 0 : clamp(now - s.start, 0, len);
           });
         });
         if (!total) total = isFixed(t) ? slotsTotal(fixedSlots(t)) : planTotal(t); // not in the calendar yet
@@ -2546,6 +2583,7 @@
     syncQuiet = true;
     events = Array.isArray(remote.events) ? remote.events : [];
     events.forEach(toSlots);
+    events.forEach(adoptDone);
     lunch = { ...lunch, ...(remote.lunch || {}) };
     toSlots(lunch);
     if (!lunch.v) { lunch.color = 'neutral'; lunch.v = 2; }
