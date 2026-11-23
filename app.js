@@ -66,7 +66,7 @@
       planNoMove: d => 'Handed over on ' + d + ' by 11:00: this block cannot be put later',
       planAuto: 'First free time', planNoRoom: 'No free time on that day', planDurTip: 'Type your own: 2, 1.5, 1:30 or 20m',
       planHoursAuto: 'Count the hours from the difficulty again', planDueTip: 'The day the project is handed over: on that day it is planned for the morning, until 11:00',
-      stColName: 'Project', stColStart: 'Start', stColEnd: 'End', stColHours: 'Spent', stTotal: 'Total',
+      stColName: 'Project', stColStart: 'Start', stColEnd: 'End', stColHours: 'Spent',
       stTasks: 'Current tasks', stNoTasks: 'No tasks in the plan.', stDue: d => 'Deadline ' + d + ', work until 11:00', stOverdue: 'overdue',
       tabCal: 'Calendar', tabTimer: 'Timer',
       menuLang: 'Language', menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
@@ -140,7 +140,7 @@
       planNoMove: d => 'Здача ' + d + ' до 11:00: цей блок не можна поставити пізніше',
       planAuto: 'Перший вільний час', planNoRoom: 'Цього дня немає вільного часу', planDurTip: 'Введіть своє: 2, 1,5, 1:30 або 20хв',
       planHoursAuto: 'Знову рахувати години зі складності', planDueTip: 'День здачі проєкту: цього дня робота над ним планується на ранок, до 11:00',
-      stColName: 'Проєкт', stColStart: 'Початок', stColEnd: 'Кінець', stColHours: 'Витрачено', stTotal: 'Разом',
+      stColName: 'Проєкт', stColStart: 'Початок', stColEnd: 'Кінець', stColHours: 'Витрачено',
       stTasks: 'Актуальні задачі', stNoTasks: 'У плані немає задач.', stDue: d => 'Дедлайн ' + d + ', робота до 11:00', stOverdue: 'прострочено',
       tabCal: 'Календар', tabTimer: 'Таймер',
       menuLang: 'Мова', menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
@@ -216,7 +216,7 @@
       planNoMove: d => 'Сдача ' + d + ' до 11:00: этот блок нельзя поставить позже',
       planAuto: 'Первое свободное время', planNoRoom: 'В этот день нет свободного времени', planDurTip: 'Введите своё: 2, 1,5, 1:30 или 20мин',
       planHoursAuto: 'Снова считать часы по сложности', planDueTip: 'День сдачи проекта: в этот день работа над ним планируется на утро, до 11:00',
-      stColName: 'Проект', stColStart: 'Начало', stColEnd: 'Конец', stColHours: 'Потрачено', stTotal: 'Итого',
+      stColName: 'Проект', stColStart: 'Начало', stColEnd: 'Конец', stColHours: 'Потрачено',
       stTasks: 'Актуальные задачи', stNoTasks: 'В плане нет задач.', stDue: d => 'Дедлайн ' + d + ', работа до 11:00', stOverdue: 'просрочено',
       tabCal: 'Календарь', tabTimer: 'Таймер',
       menuLang: 'Язык', menu: 'Меню', menuNotif: 'Уведомления', menuAccess: 'Добавить человека', on: 'Вкл.', off: 'Выкл.',
@@ -2426,7 +2426,7 @@
       };
       const table = projects.length
         ? `<div class="st-ptable"><div class="st-prow st-phead">${head('name', L().stColName)}${head('start', L().stColStart)}${head('end', L().stColEnd)}${head('hours', L().stColHours, 'st-phours')}</div>
-          ${projects.map(line).join('')}<div class="st-prow st-pfoot"><span>${L().stTotal}</span><span></span><span></span><span class="st-phours"><b>${num(projects.reduce((sum, x) => sum + x.p.done, 0))}</b> ${unit}</span></div></div>`
+          ${projects.map(line).join('')}</div>`
         : `<p class="st-empty">${L().stNoData}</p>`;
       const tab = (id, label, n) => `<button type="button" role="tab" aria-selected="${statTab === id}" class="${statTab === id ? 'on' : ''}" data-stab="${id}">${label}<small>${n || ''}</small></button>`;
       html += `<div class="st-sec"><div class="st-switch" role="tablist">${tab('current', L().stTasks, rows.length)}${tab('all', L().stAll, projects.length)}</div>
