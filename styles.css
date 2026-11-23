@@ -1028,3 +1028,32 @@ body.guest .col, body.guest .dial-btn { cursor: default; }
 /* ================= v35: a break of one's own in the editor ================= */
 .pop .row[hidden] { display: none; }
 .colors button[hidden] { display: none; }
+
+/* ================= v36: statistics - current tasks / all projects ================= */
+.st-switch { display: flex; gap: 4px; padding: 4px; margin-bottom: 14px; border-radius: 12px; background: var(--panel); }
+.st-switch button { flex: 1; min-width: 0; height: 36px; padding: 0 10px; border-radius: 9px; font-size: 14px; font-weight: 500; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
+.st-switch button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(20, 20, 40, .12); }
+.st-switch button small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.st-switch button small:empty { display: none; }
+.st-switch + .st-task { border-top: 0; padding-top: 0; }
+.st-ptable { display: flex; flex-direction: column; }
+.st-prow { display: grid; grid-template-columns: minmax(0, 1fr) 92px 92px 96px; gap: 10px; align-items: center; min-height: 44px; padding: 6px 0; border-top: 1px solid #eceef1; font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.st-prow > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-phead { border-top: 0; min-height: 30px; padding-top: 0; }
+.st-phead button { display: flex; align-items: center; gap: 4px; min-width: 0; height: 28px; font-size: 12px; font-weight: 500; color: var(--muted); text-align: left; white-space: nowrap; }
+.st-phead button.on { color: var(--ink); }
+.st-phead button i { font-style: normal; font-size: 9px; width: 9px; }
+.st-phead button:hover { color: var(--ink); }
+.st-pname { display: flex; align-items: center; gap: 10px; }
+.st-pname i { flex: none; width: 14px; height: 14px; border-radius: 5px; }
+.st-pname b { min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.st-phours { text-align: right; justify-content: flex-end; }
+.st-prow .st-phours b { font-size: 15px; font-weight: 600; }
+.st-prow .st-phours small { margin-left: 5px; font-size: 12px; color: var(--muted); }
+.st-pfoot { font-weight: 500; color: var(--muted); }
+.st-pfoot .st-phours { color: var(--ink); }
+@media (max-width: 720px) {
+  .st-prow { grid-template-columns: minmax(0, 1fr) 68px 68px 58px; gap: 6px; font-size: 13px; }
+  .st-prow .st-phours small { display: none; }
+  .st-pname { gap: 7px; }
+}
