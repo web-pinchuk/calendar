@@ -66,6 +66,7 @@
       planNoMove: d => 'Handed over on ' + d + ' by 11:00: this block cannot be put later',
       planAuto: 'First free time', planNoRoom: 'No free time on that day', planDurTip: 'Type your own: 2, 1.5, 1:30 or 20m',
       planHoursAuto: 'Count the hours from the difficulty again', planDueTip: 'The day the project is handed over: on that day it is planned for the morning, until 11:00',
+      stColName: 'Project', stColStart: 'Start', stColEnd: 'End', stColHours: 'Spent', stTotal: 'Total',
       stTasks: 'Current tasks', stNoTasks: 'No tasks in the plan.', stDue: d => 'Deadline ' + d + ', work until 11:00', stOverdue: 'overdue',
       tabCal: 'Calendar', tabTimer: 'Timer',
       menuLang: 'Language', menu: 'Menu', menuNotif: 'Notifications', menuAccess: 'Add a person', on: 'On', off: 'Off',
@@ -139,6 +140,7 @@
       planNoMove: d => 'Здача ' + d + ' до 11:00: цей блок не можна поставити пізніше',
       planAuto: 'Перший вільний час', planNoRoom: 'Цього дня немає вільного часу', planDurTip: 'Введіть своє: 2, 1,5, 1:30 або 20хв',
       planHoursAuto: 'Знову рахувати години зі складності', planDueTip: 'День здачі проєкту: цього дня робота над ним планується на ранок, до 11:00',
+      stColName: 'Проєкт', stColStart: 'Початок', stColEnd: 'Кінець', stColHours: 'Витрачено', stTotal: 'Разом',
       stTasks: 'Актуальні задачі', stNoTasks: 'У плані немає задач.', stDue: d => 'Дедлайн ' + d + ', робота до 11:00', stOverdue: 'прострочено',
       tabCal: 'Календар', tabTimer: 'Таймер',
       menuLang: 'Мова', menu: 'Меню', menuNotif: 'Сповіщення', menuAccess: 'Додати людину', on: 'Увімк.', off: 'Вимк.',
@@ -214,6 +216,7 @@
       planNoMove: d => 'Сдача ' + d + ' до 11:00: этот блок нельзя поставить позже',
       planAuto: 'Первое свободное время', planNoRoom: 'В этот день нет свободного времени', planDurTip: 'Введите своё: 2, 1,5, 1:30 или 20мин',
       planHoursAuto: 'Снова считать часы по сложности', planDueTip: 'День сдачи проекта: в этот день работа над ним планируется на утро, до 11:00',
+      stColName: 'Проект', stColStart: 'Начало', stColEnd: 'Конец', stColHours: 'Потрачено', stTotal: 'Итого',
       stTasks: 'Актуальные задачи', stNoTasks: 'В плане нет задач.', stDue: d => 'Дедлайн ' + d + ', работа до 11:00', stOverdue: 'просрочено',
       tabCal: 'Календарь', tabTimer: 'Таймер',
       menuLang: 'Язык', menu: 'Меню', menuNotif: 'Уведомления', menuAccess: 'Добавить человека', on: 'Вкл.', off: 'Выкл.',
@@ -2256,9 +2259,11 @@
     tip.hidden = true;
     pane.append(tip);
     pane.addEventListener('click', ev => {
-      const b = ev.target.closest('[data-step]');
+      const b = ev.target.closest('[data-step], [data-stab], [data-sort]');
       if (!b) return;
-      statMonth = new Date(statMonth.getFullYear(), statMonth.getMonth() + +b.dataset.step, 1);
+      if (b.dataset.step) statMonth = new Date(statMonth.getFullYear(), statMonth.getMonth() + +b.dataset.step, 1);
+      else if (b.dataset.stab) statTab = b.dataset.stab;
+      else statSort = { by: b.dataset.sort, dir: statSort.by === b.dataset.sort ? -statSort.dir : b.dataset.sort === 'name' ? 1 : -1 }; // the same column again turns the order round
       renderStats();
     });
     pane.addEventListener('pointerover', ev => {
@@ -2310,6 +2315,7 @@
   // ticked "Task done"; what is still ahead is "planned". Lunch and rest (neutral) are not work.
   // Blocks are grouped into projects by name, so hand-made and planned blocks of one project add up.
   let statMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  let statTab = 'current', statSort = { by: 'end', dir: -1 }; // the list under the tiles: tasks of the plan, or every project ever
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const dm = k => L().dayDate(fromKey(k)).split(', ')[1]; // "Nov 13" / "13 листопада"
 
@@ -2400,7 +2406,31 @@
           <div class="st-num">${badge}<span><b>${num(x.did)}</b> ${L().stOf} ${hrs(x.total)}</span></div>
           <div class="st-bar">${x.did > 0 && x.total > 0 ? `<i style="width:${Math.min(100, x.did / x.total * 100).toFixed(2)}%;background:${c.arc}"></i>` : ''}</div></div>`;
       };
-      html += `<div class="st-sec"><div class="st-h"><h4>${L().stTasks}</h4><small>${rows.length || ''}</small></div>${rows.length ? rows.map(item).join('') : `<p class="st-empty">${L().stNoTasks}</p>`}</div>`;
+      // ----- all projects ever kept in the calendar: name, first and last day, hours spent -----
+      // Dates of the table are short enough for a phone: "Nov 13" / "13.11", the year only when it is not this one.
+      const withYear = k => {
+        const [y, mo, d] = k.split('-'), other = y !== todayK.slice(0, 4);
+        return lang === 'en' ? `${T.en.months[+mo - 1].slice(0, 3)} ${+d}${other ? ` '${y.slice(2)}` : ''}` : `${d}.${mo}${other ? `.${y.slice(2)}` : ''}`;
+      };
+      const projects = all.map(p => {
+        const t = p.task && !isFixed(p.task) ? p.task : null; // a planned project runs from its start date to its deadline
+        return { p, start: t && t.start < p.first ? t.start : p.first, end: t && t.deadline > p.last ? t.deadline : p.last };
+      });
+      const order = { name: (a, b) => a.p.title.localeCompare(b.p.title), start: (a, b) => a.start.localeCompare(b.start), end: (a, b) => a.end.localeCompare(b.end), hours: (a, b) => a.p.done - b.p.done };
+      projects.sort((a, b) => statSort.dir * order[statSort.by](a, b) || a.p.title.localeCompare(b.p.title));
+      const head = (by, label, cls) => `<button type="button" class="${cls || ''}${statSort.by === by ? ' on' : ''}" data-sort="${by}">${label}<i>${statSort.by === by ? (statSort.dir > 0 ? '▲' : '▼') : ''}</i></button>`;
+      const line = x => {
+        const c = tone(x.p), ahead = x.p.plan > 0 ? `<small>${L().stOf} ${num(x.p.done + x.p.plan)}</small>` : '';
+        return `<div class="st-prow"><span class="st-pname"><i style="background:${c.soft}"></i><b title="${esc(x.p.title)}">${esc(x.p.title)}</b></span>
+          <span>${esc(withYear(x.start))}</span><span>${esc(withYear(x.end))}</span><span class="st-phours"><b>${num(x.p.done)}</b> ${unit}${ahead}</span></div>`;
+      };
+      const table = projects.length
+        ? `<div class="st-ptable"><div class="st-prow st-phead">${head('name', L().stColName)}${head('start', L().stColStart)}${head('end', L().stColEnd)}${head('hours', L().stColHours, 'st-phours')}</div>
+          ${projects.map(line).join('')}<div class="st-prow st-pfoot"><span>${L().stTotal}</span><span></span><span></span><span class="st-phours"><b>${num(projects.reduce((sum, x) => sum + x.p.done, 0))}</b> ${unit}</span></div></div>`
+        : `<p class="st-empty">${L().stNoData}</p>`;
+      const tab = (id, label, n) => `<button type="button" role="tab" aria-selected="${statTab === id}" class="${statTab === id ? 'on' : ''}" data-stab="${id}">${label}<small>${n || ''}</small></button>`;
+      html += `<div class="st-sec"><div class="st-switch" role="tablist">${tab('current', L().stTasks, rows.length)}${tab('all', L().stAll, projects.length)}</div>
+        ${statTab === 'all' ? table : rows.length ? rows.map(item).join('') : `<p class="st-empty">${L().stNoTasks}</p>`}</div>`;
     }
 
     if (!list.length) html += `<p class="st-empty">${L().stEmpty}</p>`;
